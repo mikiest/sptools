@@ -1,0 +1,30 @@
+{
+	"name": "sp",
+	"description": "SharePoint and GIT sync",
+	"version": "0.0.1",
+	"publisher": "pythagoras",
+	"engines": {
+		"vscode": "0.10.x"
+	},
+	"categories": [
+		"Others"
+	],
+	"activationEvents": [
+		"onCommand:sp.connect"
+	],
+	"main": "./out/extension",
+	"contributes": {
+		"commands": [{
+			"command": "sp.connect",
+			"title": "SharePoint: Init",
+			"description": "Initialize and sync a SharePoint workspace"
+		}]
+	},
+	"scripts": {
+		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+	},
+	"devDependencies": {
+		"vscode": "0.10.x"
+	}
+}
