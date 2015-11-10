@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import Window = vscode.window;
 import sp = require('./spauth');
+import helpers = require('./helpers');
 
 
 export function activate(context: vscode.ExtensionContext) {
+	
+	sp.getContext(context);
 
 	var disposable = vscode.commands.registerCommand('sp.connect', () => {
 		sp.getConfig(context.extensionPath);
@@ -20,45 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 			options.placeHolder = 'http(s)://domain.com';
 			Window.showInputBox(options).then((selection) => {
 				project.url = selection;
-				var promise = new Promise((resolve, reject) => {
-					var promptCredentials = () => {
-						options.prompt = 'Username?';
-						options.placeHolder = 'username@domain.com';
-						Window.showInputBox(options).then((selection) => {
-							project.user = selection;
-							options.prompt = 'Password?';
-							options.placeHolder = 'Password';
-							options.password = true;
-							Window.showInputBox(options).then((selection) => {
-								project.pwd = selection;
-								resolve();
-							});
-						});
-					};
-					var suggestions = sp.suggestCredentials(project.url);
-					var picks = suggestions.map((item) => {
-						return item.user;
-					});
-					picks.push('Add credentials');
-					if (suggestions.length) {
-						Window.showQuickPick(picks).then((selection) => {
-							if(selection === 'Add credentials') {
-								promptCredentials();
-								return false;
-							}
-							project.user = selection;
-							project.pwd = suggestions.filter((item) => {
-								return item.user === selection;
-							})[0].password;
-							resolve();
-						});
-					} else {
-						promptCredentials();
-					}
-				});
-				promise.then(() => {
-					sp.open(project);
-				});
+				sp.open(project);
 			});
 		});
 	});
@@ -66,7 +31,6 @@ export function activate(context: vscode.ExtensionContext) {
 	// Check file sync
 	vscode.workspace.onDidOpenTextDocument((e) => {
 		var fileName = e.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
-		console.log('Checking: ' + fileName);
 		if (!sbItem) {
 			sbItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 			sbItem.show();
