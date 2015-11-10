@@ -33,17 +33,17 @@ module spgit {
 			// .commit('Initialized by SP Git')
 			// .push('origin', 'master')
 			.then(() => {
-				var hooks = path + '\\.git\\hooks\\';
-				hookFiles.forEach((file) => {
-					fs.writeFileSync(hooks + file, '');
-				});
-				emit(path + '\\.git', (err) => {
-					if(err) console.log(err);
-				})
-				.on('pre-commit', (update) => {
-					console.log(update.arguments);
-					update.reject();
-				});
+				// var hooks = path + '\\.git\\hooks\\';
+				// hookFiles.forEach((file) => {
+				// 	fs.writeFileSync(hooks + file, '');
+				// });
+				// emit(path + '\\.git', (err) => {
+				// 	if(err) console.log(err);
+				// })
+				// .on('pre-commit', (update) => {
+				// 	console.log(update.arguments);
+				// 	update.reject();
+				// });
 				callback();
 			});
 	}

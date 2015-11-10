@@ -97,7 +97,7 @@ module sp {
     };
     // Init authentication
     export var open = (options:sp.Project) => {
-		if(!options.title || !options.pwd || !options.url || !options.user) {
+		if( !options.title || !options.pwd || !options.url || !options.user) {
             Window.showWarningMessage('Please fill all the inputs');
             return false;
         }
@@ -112,6 +112,12 @@ module sp {
             return cred.site === site;
         });
         return suggestions;
+    }
+    export var checkFile = (file:string) => {
+        var uptodate:boolean;
+        var request = new sp.Request();
+        request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(file) + '\')';
+        return uptodate;
     }
     // Store credentials if don't exist yet
     var storeCredentials = (options:sp.Project) => {
@@ -130,6 +136,7 @@ module sp {
         keepAlive?: boolean;
     }
     export interface Project {
+        path?: string;
         title: string;
         url: string;
         user: string;
@@ -206,6 +213,7 @@ module sp {
         digest.send().then((data:any) => {
             auth.digest = data.FormDigestValue;
             var workfolder = config.path.split('\\').join('/') + auth.project.title;
+            fs.writeFileSync(workfolder + '/spconfig.json', '{}');
             var promise = new Promise((resolve,reject) => {
                 folders.forEach((folder, folderIndex) => {
                     // 2. Get list ID
@@ -249,7 +257,8 @@ module sp {
             });
             promise.then(() => {
                 // Open code using the work folder
-                cp.exec('code ' + workfolder);
+                
+                // cp.exec('code ' + workfolder);
             });
         });
 	}

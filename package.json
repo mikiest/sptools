@@ -10,7 +10,8 @@
 		"Others"
 	],
 	"activationEvents": [
-		"onCommand:sp.connect"
+		"onCommand:sp.connect",
+		"workspaceContains:spconfig.json"
 	],
 	"main": "./out/extension",
 	"contributes": {
