@@ -54,7 +54,7 @@ module sp {
         ctx = context;
     };
     export var getConfig = (path:string) => {
-        config = JSON.parse(fs.readFileSync(path + '/spconfig.json', 'utf-8'));
+        config = JSON.parse(fs.readFileSync(path + '/config.json', 'utf-8'));
         config.path += config.path.substring(config.path.length - 1, config.path.length) === '\\' ? '' : '\\';
     };
     // SharePoint authentication

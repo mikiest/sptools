@@ -9,6 +9,9 @@ import * as fs from 'fs';
 export function activate(context: vscode.ExtensionContext) {
 	
 	sp.getContext(context);
+	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	
 	// Init new SP workspace
 	var connect = Commands.registerCommand('sp.connect', () => {
 		sp.getConfig(context.extensionPath);
@@ -48,6 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	// Upload file
 	var upload = Commands.registerCommand('sp.upload', () => {
+		
 	});
 	// Check in file
 	var checkIn = Commands.registerCommand('sp.checkin', () => {
@@ -68,15 +72,12 @@ export function activate(context: vscode.ExtensionContext) {
 	// Refresh workspace
 	var resetCredentials = Commands.registerCommand('sp.credentials.reset', () => {
 		Window.showWarningMessage('You are about to remove all your saved credentials.', 'Cancel', 'Continue').then((selection) => {
-			if (selection === 'Continue') {
+			if (selection === 'Continue')
 				context.globalState.update('credentials', []).then(() => {
 					Window.showInformationMessage('Credentials cache has been reset');
 				});
-			}
 		});
 	});
-	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	// Check file sync
 	vscode.workspace.onDidOpenTextDocument((e) => {
 		vscode.commands.executeCommand('sp.date');

@@ -1,11 +1,17 @@
 {
-	"name": "sp",
-	"description": "SharePoint and GIT sync",
-	"version": "0.0.1",
-	"publisher": "pythagoras",
+	"name": "sp-tools",
+	"displayName": "SPTools",
+	"description": "Tools helping SharePoint development using VS Code",
+	"version": "0.0.6",
+	"publisher": "Pythagoras",
+	"keywords": ["sharepoint", "o365", "tools"],
 	"engines": {
 		"vscode": "0.10.x"
 	},
+    "galleryBanner": {
+        "color": "#0668b3",
+        "theme": "dark"
+    },
 	"categories": [
 		"Others"
 	],
@@ -18,47 +24,47 @@
 		"commands": [
 			{
 				"command": "sp.connect",
-				"title": "SP: Init",
+				"title": "SPTools: Init",
 				"description": "Initialize and sync a SharePoint workspace"
 			},
 			{
 				"command": "sp.date",
-				"title": "SP: Check file freshness",
+				"title": "SPTools: Check file freshness",
 				"description": "Compare remote and local last modified dates"
 			},
 			{
 				"command": "sp.sync",
-				"title": "SP: Sync file",
+				"title": "SPTools: Sync file",
 				"description": "Sync current file"
 			},
 			{
 				"command": "sp.upload",
-				"title": "SP: Upload file",
+				"title": "SPTools: Upload file",
 				"description": "Upload current file"
 			},
 			{
 				"command": "sp.checkin",
-				"title": "SP: Check in file",
+				"title": "SPTools: Check in file",
 				"description": "Check in current file"
 			},
 			{
 				"command": "sp.checkout",
-				"title": "SP: Check out file",
+				"title": "SPTools: Check out file",
 				"description": "Check out current file"
 			},
 			{
 				"command": "sp.discard",
-				"title": "SP: Discard file check out",
+				"title": "SPTools: Discard file check out",
 				"description": "Discard current file check out (use with caution)"
 			},
 			{
 				"command": "sp.refresh",
-				"title": "SP: Sync entire workspace",
+				"title": "SPTools: Sync entire workspace",
 				"description": "Sync entire workspace (use with caution)"
 			},
 			{
 				"command": "sp.credentials.reset",
-				"title": "SP: Reset credentials cache",
+				"title": "SPTools: Reset credentials cache",
 				"description": "Delete all saved credentials (use with caution)"
 			}
 		]
