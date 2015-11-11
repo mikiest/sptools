@@ -15,14 +15,15 @@ module helpers {
 	export class Credentials {
 		stored: Array<helpers.spCredentials>;
 		constructor (){
-			this.stored = ctx.globalState.get<Array<helpers.spCredentials>>('credentials');
+			this.stored = ctx.globalState.get('credentials', []);
 		}
-		private prompt = () => {
-			var credentials:helpers.spCredentials;
-			var options: vscode.InputBoxOptions = {
+		private prompt = (site:string) => {
+			var credentials = <helpers.spCredentials>{};
+			var options:vscode.InputBoxOptions = {
 				prompt: 'Username?',
 				placeHolder: 'username@domain.com'
 			};
+			var self = this;
 			var promise = new Promise((resolve, reject) => {
 				Window.showInputBox(options).then((selection) => {
 					credentials.username = selection;
@@ -31,6 +32,8 @@ module helpers {
 					options.password = true;
 					Window.showInputBox(options).then((selection) => {
 						credentials.password = selection;
+						credentials.site = site;
+						self.store(credentials);
 						resolve(credentials);
 					});
 				});
@@ -55,22 +58,22 @@ module helpers {
 		public get = (site:string) => {
 			var suggestions = this.suggest(site);
 			var picks = suggestions.map((item) => {
-				return item.username;
+				return item.username || '';
 			});
 			var credentials:helpers.spCredentials;
 			var self = this;
 			picks.push('Add credentials');
 			var promise = new Promise((resolve, reject) => {
 				if (!suggestions.length) {
-					self.prompt().then((creds) => {
-						resolve(credentials);
+					self.prompt(site).then((creds) => {
+						resolve(creds);
 					});
 					return false;
 				}
 				Window.showQuickPick(picks).then((selection) => {
 					if(selection === 'Add credentials') {
-						self.prompt().then((creds) => {
-							resolve(credentials);
+						self.prompt(site).then((creds) => {
+							resolve(creds);
 						});
 						return false;
 					}

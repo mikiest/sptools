@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import Window = vscode.window;
-import sp = require('./spauth');
+import sp = require('./spcore');
 import helpers = require('./helpers');
+import * as fs from 'fs';
 
 
 export function activate(context: vscode.ExtensionContext) {
@@ -27,18 +28,20 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 		});
 	});
-	var sbItem:vscode.StatusBarItem;
+	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	// Check file sync
 	vscode.workspace.onDidOpenTextDocument((e) => {
 		var fileName = e.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
-		if (!sbItem) {
-			sbItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-			sbItem.show();
-		}
-		sbItem.text = '$(sync) Checking';
-		sbItem.show();
-		sp.checkFile(fileName).then((uptodate) => {
-			sbItem.text = uptodate ? '$(check) Fresh' : '$(alert) Old';
+		sbModified.show();
+		sbModified.text = '$(sync) Checking file date';
+		sbStatus.hide();
+		sbStatus.text = '$(alert) Checked out';
+		sp.checkFileState(fileName).then((data:any) => {
+			var modified:Date = new Date(data.TimeLastModified);
+			var status:number = data.CheckOutType;
+			if (!data.CheckOutType) sbStatus.show();
+			sbModified.text = modified <= data.LocalModified ? '$(check) Fresh' : '$(alert) Old';
 		});
 	}, this, context.subscriptions);
 	

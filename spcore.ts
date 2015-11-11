@@ -19,8 +19,8 @@ var tokens = {
 };
 
 var auth : sp.Auth;
-var extensionPath:string;
 var config:any;
+var wkConfig:any;
 var ctx:vscode.ExtensionContext;
 
 var mkdir = (path:string, root?:string) => {
@@ -36,11 +36,16 @@ var mkdir = (path:string, root?:string) => {
 
 module sp {
     export var getContext = (context:vscode.ExtensionContext) => {
+        auth = new sp.Auth();
+        auth.project = <sp.Project>{};
+        if (vscode.workspace.rootPath) {
+            wkConfig = JSON.parse(fs.readFileSync(vscode.workspace.rootPath + '/spconfig.json', 'utf-8'));
+            auth.project.url = wkConfig.site;
+        }
         helpers.getContext(context);
         ctx = context;
     };
     export var getConfig = (path:string) => {
-        extensionPath = path;
         config = JSON.parse(fs.readFileSync(path + '/spconfig.json', 'utf-8'));
         config.path += config.path.substring(config.path.length - 1, config.path.length) === '\\' ? '' : '\\';
     };
@@ -49,7 +54,7 @@ module sp {
         var credentials = new helpers.Credentials();
         var promise = new Promise((resolve, reject) => {
             credentials.get(auth.project.url).then((credentials:helpers.spCredentials) => {
-                var enveloppe:string = fs.readFileSync(extensionPath + '/credentials.xml', 'utf8');
+                var enveloppe:string = fs.readFileSync(ctx.extensionPath + '/credentials.xml', 'utf8');
                 var compiled:string = enveloppe.split('[username]').join(credentials.username);
                 compiled = compiled.split('[password]').join(credentials.password);
                 compiled = compiled.split('[endpoint]').join(auth.project.url);
@@ -64,6 +69,7 @@ module sp {
                     'Content-Type': 'application/xml',
                     'Content-Length': Buffer.byteLength(compiled)
                 };
+                getSecurityToken.ignoreAuth = true;
                 delete getSecurityToken.params.secureOptions;
                 getSecurityToken.data = compiled;
                 getSecurityToken.rawResult = true;
@@ -85,6 +91,7 @@ module sp {
                     };
                     getAccessToken.rawResult = true;
                     getAccessToken.data = tokens.security;
+                    getAccessToken.ignoreAuth = true;
                     getAccessToken.onResponse = (res) => {
                         var cookies = cookie.parse(res.headers["set-cookie"].join(";"));
                         tokens.access =  'rtFa=' + cookies['rtFa'] + '; FedAuth=' + cookies['FedAuth'] + ';';
@@ -104,31 +111,29 @@ module sp {
             Window.showWarningMessage('Please fill all the inputs');
             return false;
         }
-        var workfolder = config.path + auth.project.title;
+        var workfolder = config.path + options.title;
         // authenticate then init
         mkdir(workfolder);
-        fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + auth.project.url + '"}');
-        auth = new sp.Auth();
+        fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
         auth.project = options;
-        authenticate().then(() => {
-            spgit.init(workfolder, () => {
-                Window.showInformationMessage('GIT initialized');
-                var request = new sp.Request();
-                sp.get(config.folders, auth.project, tokens);
-            });
+        spgit.init(workfolder, () => {
+            Window.showInformationMessage('GIT initialized');
+            var request = new sp.Request();
+            sp.get(config.folders, options, tokens);
         });
     };
-    export var checkFile = (file:string) => {
+    export var checkFileState = (file:string) => {
         var promise = new Promise((resolve, reject) => {
             var request = new sp.Request();
-            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(file) + '\')/TimeLastModified';
-            request.send().then((data) => {
-                console.log(data);                
-                var uptodate:boolean;
-                resolve(uptodate);
+            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(file) + '\')/?$select=checkouttype,TimeLastModified';
+            request.send().then((data:any) => {
+                fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
+                    var local:Date = stats.mtime;
+                    data.LocalModified = local;
+                    resolve(data);
+                });
             });
         });
-        
         return promise;
     }
     export interface Params {
@@ -158,6 +163,7 @@ module sp {
         params: sp.Params;
         data: any;
         rawResult: boolean;
+        ignoreAuth: boolean;
         onResponse: (any) => void;
         constructor () {
             this.params = {
@@ -172,11 +178,9 @@ module sp {
             this.rawResult = false; 
         }
         send = () => {
-            // TODO: Check authentication
-            // Authenticate then
             var self = this;
             var authenticated = new Promise((resolve, reject) => {
-                if (auth.token) resolve();
+                if (auth.token || self.ignoreAuth) resolve();
                 else {
                     authenticate().then(() => {
                         resolve();
@@ -185,6 +189,7 @@ module sp {
             });
             var promise = new Promise((resolve,reject) => {
                 authenticated.then(() => {
+                    if (!self.params.headers.Cookie && auth.token) self.params.headers.Cookie = auth.token;
                     if( !self.params.path.length ) {
                         console.warn('No request path specified.');
                         reject(null);
@@ -228,7 +233,7 @@ module sp {
                         var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
                         // 3. Get folder items
                         var listItems = new sp.Request();
-                        listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType';
+                        listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
                         listItems.params.method = 'POST';
                         listItems.params.headers['X-RequestDigest'] = auth.digest;
                         listItems.params.headers['Content-Type'] = 'application/json; odata=verbose';
@@ -250,8 +255,12 @@ module sp {
                                 download.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(item.FileRef) + '\')/$value';
                                 download.send().then((data:any) => {
                                     fs.writeFile(workfolder + item.FileRef, data, 'utf8', (err) => {
-                                        if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
-                                            resolve();
+                                        var modified:number = new Date(item.Modified).getTime() / 1000 | 0;
+                                        fs.utimes(workfolder + item.FileRef, modified, modified, (err) => {
+                                            if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
+                                                resolve();
+                                            if (err) throw err;
+                                        })
                                         if (err) throw err;
                                     });
                                 });
