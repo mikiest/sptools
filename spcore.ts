@@ -35,12 +35,20 @@ var mkdir = (path:string, root?:string) => {
 };
 
 module sp {
+    var getSiteCollection = (url:string) => {
+        var last:string = url[url.length - 1];
+        if (last === '/') url = url.substring(0, url.length - 1);
+        var split = url.split('/');
+        var domain:string = split[2];
+        return (split.length > 3) ? url.split(domain)[1] : '';
+    };
     export var getContext = (context:vscode.ExtensionContext) => {
         auth = new sp.Auth();
         auth.project = <sp.Project>{};
         if (vscode.workspace.rootPath) {
             wkConfig = JSON.parse(fs.readFileSync(vscode.workspace.rootPath + '/spconfig.json', 'utf-8'));
             auth.project.url = wkConfig.site;
+            auth.project.site = getSiteCollection(wkConfig.site);
         }
         helpers.getContext(context);
         ctx = context;
@@ -53,7 +61,7 @@ module sp {
     var authenticate = () => {
         var credentials = new helpers.Credentials();
         var promise = new Promise((resolve, reject) => {
-            credentials.get(auth.project.url).then((credentials:helpers.spCredentials) => {
+            credentials.get(auth.project.url.split('/')[2]).then((credentials:helpers.spCredentials) => {
                 var enveloppe:string = fs.readFileSync(ctx.extensionPath + '/credentials.xml', 'utf8');
                 var compiled:string = enveloppe.split('[username]').join(credentials.username);
                 compiled = compiled.split('[password]').join(credentials.password);
@@ -116,6 +124,7 @@ module sp {
         mkdir(workfolder);
         fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
         auth.project = options;
+        auth.project.site = getSiteCollection(options.url);
         spgit.init(workfolder, () => {
             Window.showInformationMessage('GIT initialized');
             var request = new sp.Request();
@@ -125,7 +134,7 @@ module sp {
     export var checkFileState = (file:string) => {
         var promise = new Promise((resolve, reject) => {
             var request = new sp.Request();
-            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(file) + '\')/?$select=checkouttype,TimeLastModified';
+            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + file) + '\')/?$select=checkouttype,TimeLastModified';
             request.send().then((data:any) => {
                 fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
                     var local:Date = stats.mtime;
@@ -145,7 +154,7 @@ module sp {
         keepAlive?: boolean;
     }
     export interface Project {
-        path?: string;
+        site?: string;
         title: string;
         url: string;
         user: string;
@@ -189,6 +198,7 @@ module sp {
             });
             var promise = new Promise((resolve,reject) => {
                 authenticated.then(() => {
+                    if (!self.ignoreAuth) self.params.path = auth.project.site + self.params.path;
                     if (!self.params.headers.Cookie && auth.token) self.params.headers.Cookie = auth.token;
                     if( !self.params.path.length ) {
                         console.warn('No request path specified.');
@@ -207,6 +217,11 @@ module sp {
                         });
                         res.on('end', () => {
                             var result = self.rawResult ? data : JSON.parse(data); 
+                            if (!self.rawResult && result['odata.error']) {
+                                Window.showWarningMessage('SP: ' + result['odata.error'].message.value);
+                                reject(result['odata.error']);
+                                return false;
+                            }
                             resolve(result);
                         });
                     });
@@ -228,7 +243,7 @@ module sp {
                 folders.forEach((folder, folderIndex) => {
                     // 2. Get list ID
                     var listId = new sp.Request();
-                    listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(folder) + '\')/properties?$select=vti_listname';
+                    listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
                     listId.send().then((data:any) => {
                         var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
                         // 3. Get folder items
@@ -240,7 +255,7 @@ module sp {
                         listItems.data = '{ "query" : {"__metadata": { "type": "SP.CamlQuery" }, "ViewXml": "<View Scope=\'RecursiveAll\'>';
                         listItems.data +=   '<Query><Where><And>';
                         listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
-                        listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + folder + '</Value></BeginsWith>';
+                        listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
                         listItems.data +=   '</And></Where></Query>';  
                         listItems.data += '</View>"} }';
                         listItems.send().then((data:any) => {
@@ -252,7 +267,7 @@ module sp {
                                 mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
                                 var download = new sp.Request();
                                 download.rawResult = true;
-                                download.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(item.FileRef) + '\')/$value';
+                                download.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + item.FileRef) + '\')/$value';
                                 download.send().then((data:any) => {
                                     fs.writeFile(workfolder + item.FileRef, data, 'utf8', (err) => {
                                         var modified:number = new Date(item.Modified).getTime() / 1000 | 0;

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import Window = vscode.window;
+import Commands = vscode.commands;
 import sp = require('./spcore');
 import helpers = require('./helpers');
 import * as fs from 'fs';
@@ -8,8 +9,8 @@ import * as fs from 'fs';
 export function activate(context: vscode.ExtensionContext) {
 	
 	sp.getContext(context);
-
-	var disposable = vscode.commands.registerCommand('sp.connect', () => {
+	// Init new SP workspace
+	var connect = Commands.registerCommand('sp.connect', () => {
 		sp.getConfig(context.extensionPath);
 		var project = <sp.Project>{};
 		
@@ -28,22 +29,58 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 		});
 	});
-	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-	// Check file sync
-	vscode.workspace.onDidOpenTextDocument((e) => {
-		var fileName = e.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
+	var date = Commands.registerCommand('sp.date', () => {
+		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
 		sbModified.show();
 		sbModified.text = '$(sync) Checking file date';
 		sbStatus.hide();
 		sbStatus.text = '$(alert) Checked out';
-		sp.checkFileState(fileName).then((data:any) => {
+		sp.checkFileState(file).then((data:any) => {
 			var modified:Date = new Date(data.TimeLastModified);
 			var status:number = data.CheckOutType;
 			if (!data.CheckOutType) sbStatus.show();
 			sbModified.text = modified <= data.LocalModified ? '$(check) Fresh' : '$(alert) Old';
 		});
+	});
+	// Sync file
+	var sync = Commands.registerCommand('sp.sync', () => {
+		
+	});
+	// Upload file
+	var upload = Commands.registerCommand('sp.upload', () => {
+	});
+	// Check in file
+	var checkIn = Commands.registerCommand('sp.checkin', () => {
+		
+	});
+	// Check out file
+	var checkOut = Commands.registerCommand('sp.checkout', () => {
+		
+	});
+	// Discard file checkout
+	var discard = Commands.registerCommand('sp.discard', () => {
+		
+	});
+	// Refresh workspace
+	var refresh = Commands.registerCommand('sp.refresh', () => {
+		
+	});
+	// Refresh workspace
+	var resetCredentials = Commands.registerCommand('sp.credentials.reset', () => {
+		Window.showWarningMessage('You are about to remove all your saved credentials.', 'Cancel', 'Continue').then((selection) => {
+			if (selection === 'Continue') {
+				context.globalState.update('credentials', []).then(() => {
+					Window.showInformationMessage('Credentials cache has been reset');
+				});
+			}
+		});
+	});
+	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	// Check file sync
+	vscode.workspace.onDidOpenTextDocument((e) => {
+		vscode.commands.executeCommand('sp.date');
 	}, this, context.subscriptions);
 	
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(connect, date, sync, upload, checkIn, checkOut, discard, refresh, resetCredentials);
 }

@@ -15,11 +15,53 @@
 	],
 	"main": "./out/extension",
 	"contributes": {
-		"commands": [{
-			"command": "sp.connect",
-			"title": "SharePoint: Init",
-			"description": "Initialize and sync a SharePoint workspace"
-		}]
+		"commands": [
+			{
+				"command": "sp.connect",
+				"title": "SP: Init",
+				"description": "Initialize and sync a SharePoint workspace"
+			},
+			{
+				"command": "sp.date",
+				"title": "SP: Check file freshness",
+				"description": "Compare remote and local last modified dates"
+			},
+			{
+				"command": "sp.sync",
+				"title": "SP: Sync file",
+				"description": "Sync current file"
+			},
+			{
+				"command": "sp.upload",
+				"title": "SP: Upload file",
+				"description": "Upload current file"
+			},
+			{
+				"command": "sp.checkin",
+				"title": "SP: Check in file",
+				"description": "Check in current file"
+			},
+			{
+				"command": "sp.checkout",
+				"title": "SP: Check out file",
+				"description": "Check out current file"
+			},
+			{
+				"command": "sp.discard",
+				"title": "SP: Discard file check out",
+				"description": "Discard current file check out (use with caution)"
+			},
+			{
+				"command": "sp.refresh",
+				"title": "SP: Sync entire workspace",
+				"description": "Sync entire workspace (use with caution)"
+			},
+			{
+				"command": "sp.credentials.reset",
+				"title": "SP: Reset credentials cache",
+				"description": "Delete all saved credentials (use with caution)"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
