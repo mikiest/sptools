@@ -35,27 +35,13 @@ var mkdir = (path:string, root?:string) => {
 };
 
 module sp {
+    // Parse URL and get site collection URL
     var getSiteCollection = (url:string) => {
         var last:string = url[url.length - 1];
         if (last === '/') url = url.substring(0, url.length - 1);
         var split = url.split('/');
         var domain:string = split[2];
         return (split.length > 3) ? url.split(domain)[1] : '';
-    };
-    export var getContext = (context:vscode.ExtensionContext) => {
-        auth = new sp.Auth();
-        auth.project = <sp.Project>{};
-        if (vscode.workspace.rootPath) {
-            wkConfig = JSON.parse(fs.readFileSync(vscode.workspace.rootPath + '/spconfig.json', 'utf-8'));
-            auth.project.url = wkConfig.site;
-            auth.project.site = getSiteCollection(wkConfig.site);
-        }
-        helpers.getContext(context);
-        ctx = context;
-    };
-    export var getConfig = (path:string) => {
-        config = JSON.parse(fs.readFileSync(path + '/config.json', 'utf-8'));
-        config.path += config.path.substring(config.path.length - 1, config.path.length) === '\\' ? '' : '\\';
     };
     // SharePoint authentication
     var authenticate = () => {
@@ -113,38 +99,6 @@ module sp {
         });
         return promise;
     };
-    // Init authentication
-    export var open = (options:sp.Project) => {
-		if( !options.title || !options.url) {
-            Window.showWarningMessage('Please fill all the inputs');
-            return false;
-        }
-        var workfolder = config.path + options.title;
-        // authenticate then init
-        mkdir(workfolder);
-        fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
-        auth.project = options;
-        auth.project.site = getSiteCollection(options.url);
-        spgit.init(workfolder, () => {
-            Window.showInformationMessage('GIT initialized');
-            var request = new sp.Request();
-            sp.get(config.folders, options, tokens);
-        });
-    };
-    export var checkFileState = (file:string) => {
-        var promise = new Promise((resolve, reject) => {
-            var request = new sp.Request();
-            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + file) + '\')/?$select=checkouttype,TimeLastModified';
-            request.send().then((data:any) => {
-                fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
-                    var local:Date = stats.mtime;
-                    data.LocalModified = local;
-                    resolve(data);
-                });
-            });
-        });
-        return promise;
-    }
     export interface Params {
         hostname: string;
         path?: string;
@@ -167,6 +121,7 @@ module sp {
         constructor(){
         }
     }
+    // Request wrapper
     export class Request {
         digest: string;
         params: sp.Params;
@@ -186,6 +141,7 @@ module sp {
             if (auth.token) this.params.headers.Cookie = auth.token;
             this.rawResult = false; 
         }
+        // Send and authenticate if needed
         send = () => {
             var self = this;
             var authenticated = new Promise((resolve, reject) => {
@@ -231,6 +187,56 @@ module sp {
             return promise;
         }
     }
+    // Init workspace
+    export var open = (options:sp.Project) => {
+		if( !options.title || !options.url) {
+            Window.showWarningMessage('Please fill all the inputs');
+            return false;
+        }
+        var workfolder = config.path + options.title;
+        mkdir(workfolder);
+        fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
+        auth.project = options;
+        auth.project.site = getSiteCollection(options.url);
+        spgit.init(workfolder, () => {
+            Window.showInformationMessage('GIT initialized');
+            var request = new sp.Request();
+            sp.get(config.folders, options, tokens);
+        });
+    };
+    // Get and store Extension context
+    export var getContext = (context:vscode.ExtensionContext) => {
+        auth = new sp.Auth();
+        auth.project = <sp.Project>{};
+        if (vscode.workspace.rootPath) {
+            wkConfig = JSON.parse(fs.readFileSync(vscode.workspace.rootPath + '/spconfig.json', 'utf-8'));
+            auth.project.url = wkConfig.site;
+            auth.project.site = getSiteCollection(wkConfig.site);
+        }
+        helpers.getContext(context);
+        ctx = context;
+    };
+    // Get Extension settings
+    export var getConfig = (path:string) => {
+        config = JSON.parse(fs.readFileSync(path + '/config.json', 'utf-8'));
+        config.path += config.path.substring(config.path.length - 1, config.path.length) === '\\' ? '' : '\\';
+    };
+    // Check file dates and status
+    export var checkFileState = (file:string) => {
+        var promise = new Promise((resolve, reject) => {
+            var request = new sp.Request();
+            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + file) + '\')/?$select=checkouttype,TimeLastModified';
+            request.send().then((data:any) => {
+                fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
+                    var local:Date = stats.mtime;
+                    data.LocalModified = local;
+                    resolve(data);
+                });
+            });
+        });
+        return promise;
+    }
+    // Resolve and download files
     export var get = (folders, project, tokens) => {
 		// 1. Get request digest
 		var digest = new sp.Request();

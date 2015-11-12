@@ -6,17 +6,19 @@ var ctx:vscode.ExtensionContext;
 module helpers {
 	export var getContext = (context:vscode.ExtensionContext) => {
 		ctx = context;
-	};
+	}
 	export interface spCredentials {
 		username: string;
 		password: string;
 		site?: string;
 	}
+	// Credentials helper
 	export class Credentials {
 		stored: Array<helpers.spCredentials>;
 		constructor (){
 			this.stored = ctx.globalState.get('credentials', []);
 		}
+		// Prompt for credentials
 		private prompt = (site:string) => {
 			var credentials = <helpers.spCredentials>{};
 			var options:vscode.InputBoxOptions = {
@@ -40,6 +42,7 @@ module helpers {
 			});
 			return promise;
 		}
+		// Get credential suggestion using matching URL
 		private suggest = (site:string) => {
 			// Use memento
 			var suggestions:Array<helpers.spCredentials> = this.stored.filter((cred) => {
@@ -47,6 +50,7 @@ module helpers {
 			});
 			return suggestions;
 		}
+		// Store credentials in cache
 		private store = (credentials:helpers.spCredentials) => {
 			var exists:boolean = this.stored.filter((cred) => {
 				return cred.username === credentials.username;
@@ -55,6 +59,7 @@ module helpers {
 			this.stored.push(credentials);
 			ctx.globalState.update('credentials', this.stored);
 		}
+		// Resolve stored credentials or ask for them
 		public get = (site:string) => {
 			var suggestions = this.suggest(site);
 			var picks = suggestions.map((item) => {

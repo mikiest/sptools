@@ -5,10 +5,11 @@ import sp = require('./spcore');
 import helpers = require('./helpers');
 import * as fs from 'fs';
 
-
 export function activate(context: vscode.ExtensionContext) {
-	
+	// Store extension context for SP module
 	sp.getContext(context);
+	
+	// Status bar icons
 	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	
@@ -21,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 			prompt: 'Project name?',
 			placeHolder: 'Project name'
 		};
-		
+		// Ask for workspace params: SP URL, project title, credentials
 		Window.showInputBox(options).then((selection) => {
 			project.title = selection;
 			options.prompt = 'Site URL?';
@@ -32,6 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 		});
 	});
+	// Compare local and remote file dates and check check-out status
 	var date = Commands.registerCommand('sp.date', () => {
 		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
 		sbModified.show();

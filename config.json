@@ -1,5 +1,7 @@
 {
+	// Top level workspace folder
 	"path": "w:\\work\\nodegit\\test2",
+	// Remote folders to download
 	"folders": [
 		"/_catalogs/masterpage/py3",
 		"/style library/en-us/themable/py3"
