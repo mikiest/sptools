@@ -3,7 +3,7 @@
 	"displayName": "SPTools",
 	"description": "Tools helping SharePoint development using VS Code",
 	"version": "0.0.6",
-	"publisher": "Pythagoras",
+	"publisher": "Mike",
 	"keywords": ["sharepoint", "o365", "tools"],
 	"engines": {
 		"vscode": "0.10.x"
@@ -13,7 +13,7 @@
         "theme": "dark"
     },
 	"categories": [
-		"Others"
+		"Other"
 	],
 	"activationEvents": [
 		"onCommand:sp.connect",
@@ -24,50 +24,83 @@
 		"commands": [
 			{
 				"command": "sp.connect",
-				"title": "SPTools: Init",
+				"category": "SPTools",
+				"title": "Init",
 				"description": "Initialize and sync a SharePoint workspace"
 			},
 			{
 				"command": "sp.date",
-				"title": "SPTools: Check file freshness",
+				"category": "SPTools",
+				"title": "Check file freshness",
 				"description": "Compare remote and local last modified dates"
 			},
 			{
 				"command": "sp.sync",
-				"title": "SPTools: Sync file",
+				"category": "SPTools",
+				"title": "Sync file",
 				"description": "Sync current file"
 			},
 			{
 				"command": "sp.upload",
-				"title": "SPTools: Upload file",
+				"category": "SPTools",
+				"title": "Upload file",
 				"description": "Upload current file"
 			},
 			{
 				"command": "sp.checkin",
-				"title": "SPTools: Check in file",
+				"category": "SPTools",
+				"title": "Check in file",
 				"description": "Check in current file"
 			},
 			{
 				"command": "sp.checkout",
-				"title": "SPTools: Check out file",
+				"category": "SPTools",
+				"title": "Check out file",
 				"description": "Check out current file"
 			},
 			{
 				"command": "sp.discard",
-				"title": "SPTools: Discard file check out",
+				"category": "SPTools",
+				"title": "Discard file check out",
 				"description": "Discard current file check out (use with caution)"
 			},
 			{
 				"command": "sp.refresh",
-				"title": "SPTools: Sync entire workspace",
+				"category": "SPTools",
+				"title": "Sync entire workspace",
 				"description": "Sync entire workspace (use with caution)"
 			},
 			{
 				"command": "sp.credentials.reset",
-				"title": "SPTools: Reset credentials cache",
+				"category": "SPTools",
+				"title": "Reset credentials cache",
 				"description": "Delete all saved credentials (use with caution)"
 			}
-		]
+		],
+		"configuration": {
+			"type": "object",
+			"title": "SPTools configuration",
+			"properties": {
+				"sptools.workFolder": {
+					"type": "string",
+					"default": "c:\\\\work\\\\",
+					"description": "Path to your top level work folder"
+				},
+				"sptools.spFolders": {
+					"type": "array",
+					"default": [
+						"/_catalogs/masterpage/sptools",
+						"/style library/en-us/themable/sptools"
+					],
+					"description": "Folders to be fetched from SharePoint sites"
+				},
+				"sptools.storeCredentials": {
+					"type": "boolean",
+					"default": true,
+					"description": "Set to false if you don't want credentials to be stored"
+				}
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
@@ -75,5 +108,12 @@
 	},
 	"devDependencies": {
 		"vscode": "0.10.x"
+	},
+	"dependencies": {
+		"constants": "0.0.2",
+		"cookie": "0.2.3",
+		"fs": "0.0.2",
+		"https": "1.0.0",
+		"simple-git": "1.11.0"
 	}
 }

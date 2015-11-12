@@ -19,9 +19,11 @@ var tokens = {
 };
 
 var auth : sp.Auth;
-var config:any;
+var config;
 var wkConfig:any;
 var ctx:vscode.ExtensionContext;
+
+var currentUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 
 var mkdir = (path:string, root?:string) => {
     var dirs = path.split('/'),
@@ -35,6 +37,94 @@ var mkdir = (path:string, root?:string) => {
 };
 
 module sp {
+    export interface Params {
+        hostname: string;
+        path?: string;
+        method: string;
+        secureOptions: number;
+        headers: any;
+        keepAlive?: boolean;
+    }
+    export interface Project {
+        site?: string;
+        title: string;
+        url: string;
+        user: string;
+        pwd: string;
+    }
+    export class Auth {
+        token: string;
+        digest: string;
+        project: Project;
+        constructor(){
+        }
+    }
+    // Request wrapper
+    export class Request {
+        digest: string;
+        params: sp.Params;
+        data: any;
+        rawResult: boolean;
+        ignoreAuth: boolean;
+        onResponse: (any) => void;
+        constructor () {
+            this.params = {
+                method: 'GET',
+                hostname: auth.project.url.split('/')[2],
+                secureOptions: constants.SSL_OP_NO_TLSv1_2,
+                headers: {
+                    'Accept': 'application/json; odata=nometadata'
+                }
+            };
+            if (auth.token) this.params.headers.Cookie = auth.token;
+            this.rawResult = false; 
+        }
+        private error = (error) => {
+            Window.showWarningMessage(error);
+        }
+        // Send and authenticate if needed
+        send = () => {
+            var self = this;
+            var authenticated = new Promise((resolve, reject) => {
+                if (auth.token || self.ignoreAuth) resolve();
+                else
+                    authenticate().then(() => {
+                        resolve();
+                    });
+            });
+            var promise = new Promise((resolve,reject) => {
+                authenticated.then(() => {
+                    if (!self.ignoreAuth) self.params.path = auth.project.site + self.params.path;
+                    if (!self.params.headers.Cookie && auth.token) self.params.headers.Cookie = auth.token;
+                    if( !self.params.path.length ) {
+                        console.warn('No request path specified.');
+                        reject(null);
+                        return false;
+                    }
+                    var request = https.request(self.params, (res) => {
+                        if(self.onResponse) self.onResponse(res);
+                        var data:string = '';
+                        res.on('data', (chunk) => {
+                            data += chunk;
+                        });
+                        res.on('error', (err) => {
+                            self.error(err.message);
+                        });
+                        res.on('end', () => {
+                            var result = self.rawResult ? data : JSON.parse(data); 
+                            if (!self.rawResult && result['odata.error']) {
+                                self.error(result['odata.error'].message.value);
+                                return false;
+                            }
+                            resolve(result);
+                        });
+                    });
+                    request.end(self.data || null);
+                });
+            });
+            return promise;
+        }
+    }
     // Parse URL and get site collection URL
     var getSiteCollection = (url:string) => {
         var last:string = url[url.length - 1];
@@ -92,100 +182,25 @@ module sp {
                         auth.token = tokens.access;
                     };
                     getAccessToken.send().then(() => {
-                        resolve();
+                        var user = new sp.Request();
+                        user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName';
+                        user.send().then((data:any) => {
+                            currentUser.text = '$(hubot) ' + data.DisplayName;
+                            currentUser.tooltip = 'SPTools: Authenticated as ' + data.DisplayName;
+                            currentUser.show();
+                            resolve();
+                        })
                     });
                 });
             });
         });
         return promise;
     };
-    export interface Params {
-        hostname: string;
-        path?: string;
-        method: string;
-        secureOptions: number;
-        headers: any;
-        keepAlive?: boolean;
-    }
-    export interface Project {
-        site?: string;
-        title: string;
-        url: string;
-        user: string;
-        pwd: string;
-    }
-    export class Auth {
-        token: string;
-        digest: string;
-        project: Project;
-        constructor(){
-        }
-    }
-    // Request wrapper
-    export class Request {
-        digest: string;
-        params: sp.Params;
-        data: any;
-        rawResult: boolean;
-        ignoreAuth: boolean;
-        onResponse: (any) => void;
-        constructor () {
-            this.params = {
-                method: 'GET',
-                hostname: auth.project.url.split('/')[2],
-                secureOptions: constants.SSL_OP_NO_TLSv1_2,
-                headers: {
-                    'Accept': 'application/json; odata=nometadata'
-                }
-            };
-            if (auth.token) this.params.headers.Cookie = auth.token;
-            this.rawResult = false; 
-        }
-        // Send and authenticate if needed
-        send = () => {
-            var self = this;
-            var authenticated = new Promise((resolve, reject) => {
-                if (auth.token || self.ignoreAuth) resolve();
-                else {
-                    authenticate().then(() => {
-                        resolve();
-                    });
-                }
-            });
-            var promise = new Promise((resolve,reject) => {
-                authenticated.then(() => {
-                    if (!self.ignoreAuth) self.params.path = auth.project.site + self.params.path;
-                    if (!self.params.headers.Cookie && auth.token) self.params.headers.Cookie = auth.token;
-                    if( !self.params.path.length ) {
-                        console.warn('No request path specified.');
-                        reject(null);
-                        return false;
-                    }
-                    var request = https.request(self.params, (res) => {
-                        if(self.onResponse) self.onResponse(res);
-                        var data:string = '';
-                        res.on('data', (chunk) => {
-                            data += chunk;
-                        });
-                        res.on('error', (err) => {
-                            console.warn('Request error:' + err);
-                            reject(err);
-                        });
-                        res.on('end', () => {
-                            var result = self.rawResult ? data : JSON.parse(data); 
-                            if (!self.rawResult && result['odata.error']) {
-                                Window.showWarningMessage('SP: ' + result['odata.error'].message.value);
-                                reject(result['odata.error']);
-                                return false;
-                            }
-                            resolve(result);
-                        });
-                    });
-                    request.end(self.data || null);
-                });
-            });
-            return promise;
-        }
+    // Get file properties
+    var getProperties = (fileName:string) => {
+        var properties = new sp.Request();
+        properties.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/?$select=Name,ServerRelativeUrl,CheckOutType,TimeLastModified';
+        return properties.send();
     }
     // Init workspace
     export var open = (options:sp.Project) => {
@@ -201,7 +216,7 @@ module sp {
         spgit.init(workfolder, () => {
             Window.showInformationMessage('GIT initialized');
             var request = new sp.Request();
-            sp.get(config.folders, options, tokens);
+            sp.get(config.spFolders, options, tokens);
         });
     };
     // Get and store Extension context
@@ -218,15 +233,20 @@ module sp {
     };
     // Get Extension settings
     export var getConfig = (path:string) => {
-        config = JSON.parse(fs.readFileSync(path + '/config.json', 'utf-8'));
-        config.path += config.path.substring(config.path.length - 1, config.path.length) === '\\' ? '' : '\\';
+        config = vscode.workspace.getConfiguration('sptools');
+        var wk:string = config.workFolder;
+        config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
+        try { fs.statSync(config.path); }
+        catch (err) {
+            Window.showWarningMessage(config.path + ' does not exist.', 'Create').then((selection) => {
+                if (selection === 'Create') mkdir(config.path);
+            });
+        }
     };
     // Check file dates and status
     export var checkFileState = (file:string) => {
         var promise = new Promise((resolve, reject) => {
-            var request = new sp.Request();
-            request.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + file) + '\')/?$select=checkouttype,TimeLastModified';
-            request.send().then((data:any) => {
+            getProperties(file).then((data:any) => {
                 fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
                     var local:Date = stats.mtime;
                     data.LocalModified = local;
@@ -271,19 +291,9 @@ module sp {
                             items.forEach((item, itemIndex) => {
                                 // TODO: Continue if should be ignored
                                 mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
-                                var download = new sp.Request();
-                                download.rawResult = true;
-                                download.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(auth.project.site + item.FileRef) + '\')/$value';
-                                download.send().then((data:any) => {
-                                    fs.writeFile(workfolder + item.FileRef, data, 'utf8', (err) => {
-                                        var modified:number = new Date(item.Modified).getTime() / 1000 | 0;
-                                        fs.utimes(workfolder + item.FileRef, modified, modified, (err) => {
-                                            if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
-                                                resolve();
-                                            if (err) throw err;
-                                        })
-                                        if (err) throw err;
-                                    });
+                                sp.download(item.FileRef, workfolder).then(() => {
+                                    if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
+                                        resolve();
                                 });
                             });
                         });
@@ -297,5 +307,66 @@ module sp {
             });
         });
 	}
+    // Download specific file
+    export var download = (fileName:string, workfolder:string) => {
+        var promise = new Promise((resolve,reject) => {
+            getProperties(fileName).then((props:any) => {
+                var download = new sp.Request();
+                download.rawResult = true;
+                download.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/$value';
+                download.send().then((data:any) => {
+                    fs.writeFile(workfolder + fileName, data, 'utf8', (err) => {
+                        var modified:number = new Date(props.TimeLastModified).getTime() / 1000 | 0;
+                        fs.utimes(workfolder + fileName, modified, modified, (err) => {
+                            resolve(err);
+                            if (err) throw err;
+                        })
+                        if (err) throw err;
+                    });
+                });
+            });
+        });
+        return promise;        
+    }
+    // Resolve and download files
+    export var upload = (fileName:string) => {
+        var fileLeaf:string = fileName.split('/').pop();
+        var folder:string = fileName.split(fileLeaf)[0];
+        var threads = new Promise((resolve, reject) => {
+            var buffer:Buffer;
+            var requestDigest:string;
+            // 1. Get buffer
+            fs.readFile(vscode.workspace.rootPath + fileName, (err, data) => {
+                if (err) reject(err);
+                buffer = data;
+                if (requestDigest) resolve({buffer: buffer, digest: requestDigest});
+            });
+            // 2. Get request digest
+            var digest = new sp.Request();
+            digest.params.path = '/_api/contextinfo';
+            digest.params.method = 'POST';
+            digest.send().then((data:any) => {
+                auth.digest = data.FormDigestValue;
+                requestDigest = data.FormDigestValue;
+                if (buffer) resolve({buffer: buffer, digest: requestDigest});
+            });
+        });
+        var promise = new Promise((resolve, reject) => {
+            threads.then((data:any) => {
+                // 3. Upload
+                var upload = new sp.Request();
+                upload.params.path = '/_api/web/getfolderbyserverrelativeurl(\'' + encodeURI(folder) + '\')/files/add(overwrite=true,url=\'' + encodeURI(fileLeaf) + '\')';
+                upload.params.method = 'POST';
+                upload.data = data.buffer;
+                upload.params.headers['X-RequestDigest'] = data.digest;
+                upload.send().then(() => {
+                    resolve();
+                });
+            }, (err:any) => {
+                resolve(err);
+            });
+        });
+        return promise;
+    };
 };
 export = sp;

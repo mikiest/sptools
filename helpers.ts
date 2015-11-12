@@ -16,7 +16,7 @@ module helpers {
 	export class Credentials {
 		stored: Array<helpers.spCredentials>;
 		constructor (){
-			this.stored = ctx.globalState.get('credentials', []);
+			this.stored = ctx.globalState.get('sp.credentials', []);
 		}
 		// Prompt for credentials
 		private prompt = (site:string) => {
@@ -52,12 +52,13 @@ module helpers {
 		}
 		// Store credentials in cache
 		private store = (credentials:helpers.spCredentials) => {
+			if (!vscode.workspace.getConfiguration('sptools').get('storeCredentials')) return false;
 			var exists:boolean = this.stored.filter((cred) => {
 				return cred.username === credentials.username;
 			}).length > 0;
         	if (exists) return false;
 			this.stored.push(credentials);
-			ctx.globalState.update('credentials', this.stored);
+			ctx.globalState.update('sp.credentials', this.stored);
 		}
 		// Resolve stored credentials or ask for them
 		public get = (site:string) => {
