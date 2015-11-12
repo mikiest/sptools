@@ -108,12 +108,14 @@ module sp {
                             data += chunk;
                         });
                         res.on('error', (err) => {
+                            reject();
                             self.error(err.message);
                         });
                         res.on('end', () => {
                             var result = self.rawResult ? data : JSON.parse(data); 
                             if (!self.rawResult && result['odata.error']) {
                                 self.error(result['odata.error'].message.value);
+                                reject();
                                 return false;
                             }
                             resolve(result);
@@ -170,7 +172,7 @@ module sp {
                     getAccessToken.params.method = 'POST';
                     getAccessToken.params.headers = {
                         'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
-                        'Content-Type': 'application/x-www-form-urlencoded',                
+                        'Content-Type': 'application/x-www-form-urlencoded',
                         'Content-Length': Buffer.byteLength(tokens.security)
                     };
                     getAccessToken.rawResult = true;
@@ -223,11 +225,12 @@ module sp {
     export var getContext = (context:vscode.ExtensionContext) => {
         auth = new sp.Auth();
         auth.project = <sp.Project>{};
-        if (vscode.workspace.rootPath) {
-            wkConfig = JSON.parse(fs.readFileSync(vscode.workspace.rootPath + '/spconfig.json', 'utf-8'));
+        fs.readFile(vscode.workspace.rootPath + '/spconfig.json', 'utf-8', (err, data:string) => {
+            if (err) return;
+            wkConfig = JSON.parse(data);
             auth.project.url = wkConfig.site;
             auth.project.site = getSiteCollection(wkConfig.site);
-        }
+        });
         helpers.getContext(context);
         ctx = context;
     };
