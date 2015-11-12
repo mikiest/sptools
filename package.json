@@ -2,7 +2,7 @@
 	"name": "sp-tools",
 	"displayName": "SPTools",
 	"description": "Tools helping SharePoint development using VS Code",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"publisher": "Mike",
 	"keywords": ["sharepoint", "o365", "tools"],
 	"engines": {
