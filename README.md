@@ -6,49 +6,44 @@ The purpose of this extension is to help **developers** to work on remote **Shar
 
 `ext install SPTools`
 
-## config.json
+## Extension settings
 ------
 
-This is your extension **global** config file.
+These are your extension settings:
 
-```
-{
-	"path": "C:\\work\\",
-	"folders": [
+```json
+"sptools.workFolder": {
+	"type": "string",
+	"default": "c:\\\\work\\\\",
+	"description": "Path to your top level work folder"
+},
+"sptools.spFolders": {
+	"type": "array",
+	"default": [
 		"/_catalogs/masterpage/sptools",
-		"/style library/en-us/themable/tools"
-	]
+		"/style library/en-us/themable/sptools"
+	],
+	"description": "Folders to be fetched from SharePoint sites"
+},
+"sptools.storeCredentials": {
+	"type": "boolean",
+	"default": true,
+	"description": "Set to false if you don't want credentials to be cached"
 }
 ```
 
-### "path" (String)
+To override them, specify your own values in `File > Preferences` then either `User Settings` or `Workspace Settings`.
 
-Specify your top level local workspace folder here. This should typically be updated after installation.
+:bulb: It's a good idea to set your own SharePoint folders list, the default ones will probably not exist on your sites.
 
-This is where the new SP workspaces will be created, using the project name as subfolder name.
+### Folders creation
 
-**Example**
-
-Using `"path": "C:\\work\\"` will create here a folder per new workspace.
-
-### "folders" (Array)
-
-Specify the remote folders you want to download and sync in your workspace.
-
-The folder structures will be replicated locally from the workspace root.
-
-**Example**
-
-Using the `SPTools: Init` command, with `test` as project name and the initial configuration above will create:
-
-- `C:\\work\\test\\`
-- `C:\\work\\test\\_catalogs\\masterpage\\sptools`
-- `C:\\work\\test\\style library\\en-us\\themable\\sptools`
+Please keep in mind that any non existing folder used in the config will be created.
 
 ## spconfig.json
 ------
 
-This is a **workspace specific** config file, created automatically when using the `SPTools: Init` command at the root of the workspace.
+This is a **workspace specific** config file, created automatically at the root of the workspace when using the `SPTools: Init` command.
 
 For now it only stores the SharePoint site URL.
 
@@ -57,33 +52,27 @@ For now it only stores the SharePoint site URL.
 
 ### SPTools: Init
 
-Initialize and sync a SharePoint workspace.
+Create a new SharePoint workspace from a remote site.
 
-Replicate folder structure and download all files locally. 
+Replicate folder structure and download all files locally.
+
+SharePoint workspaces (folders with a top level spconfig.json file) will prompt you to login to the relevant remote site the first time you open a file. This is because the extension is checking the current file status (date and check out status) when opening it (there is a small latence so it won't check dozen of files if you quickly switch between them).
 
 ### SPTools: Check file freshness
 
-Compare remote and local last modified dates and update statusbar indicators.
+**Compare** remote and local last modified dates and update statusbar indicators accordingly.
 
 ### SPTools: Sync file
 
-Sync current file
+**Download** remote file, replace current local file.
 
 ### SPTools: Upload file
 
-Upload current file
+**Upload** current file to remote site, replace remote file with local one.
 
-### SPTools: Check in file
+### SPTools: Check in/out file
 
-Check in current file
-
-### SPTools: Check out file
-
-Check out current file
-
-### SPTools: Discard file check out
-
-Discard current file check out (use with caution)
+Check file status and ask if you want to **check it in, out or discard** the current check out depending on the current state.
 
 ### SPTools: Sync entire workspace
 
@@ -91,7 +80,7 @@ Sync entire workspace (use with caution)
 
 ### SPTools: Reset credentials cache
 
-Delete all saved credentials (use with caution)
+**Delete all cached credentials**
 
 ## A word about credentials
 ------

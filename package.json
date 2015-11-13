@@ -47,22 +47,10 @@
 				"description": "Upload current file"
 			},
 			{
-				"command": "sp.checkin",
+				"command": "sp.checkinout",
 				"category": "SPTools",
-				"title": "Check in file",
-				"description": "Check in current file"
-			},
-			{
-				"command": "sp.checkout",
-				"category": "SPTools",
-				"title": "Check out file",
-				"description": "Check out current file"
-			},
-			{
-				"command": "sp.discard",
-				"category": "SPTools",
-				"title": "Discard file check out",
-				"description": "Discard current file check out (use with caution)"
+				"title": "Check in/out/dicard file",
+				"description": "Check in, out or discard current file checkout"
 			},
 			{
 				"command": "sp.refresh",
@@ -113,7 +101,6 @@
 		"constants": "0.0.2",
 		"cookie": "0.2.3",
 		"fs": "0.0.2",
-		"https": "1.0.0",
-		"simple-git": "1.11.0"
+		"https": "1.0.0"
 	}
 }

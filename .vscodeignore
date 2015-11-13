@@ -7,3 +7,4 @@ test/**
 .gitignore
 tsconfig.json
 vsc-extension-quickstart.md
+spgit.ts

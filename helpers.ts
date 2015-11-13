@@ -2,10 +2,22 @@ import * as vscode from 'vscode';
 import Window = vscode.window;
 
 var ctx:vscode.ExtensionContext;
+var sbUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 
 module helpers {
 	export var getContext = (context:vscode.ExtensionContext) => {
 		ctx = context;
+	}
+	export var setCurrentUser = (user:any) => {
+		helpers.currentUser.displayName = user.DisplayName;
+		helpers.currentUser.email = user.Email;
+		sbUser.text = '$(hubot) ' + user.DisplayName;
+		sbUser.tooltip = 'SPTools: Authenticated as ' + user.DisplayName;
+		sbUser.show();
+	};
+	export var currentUser = {
+		displayName: '',
+		email: ''
 	}
 	export interface spCredentials {
 		username: string;

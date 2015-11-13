@@ -5,7 +5,6 @@ import * as constants from 'constants';
 var cookie = require('cookie');
 import * as fs from 'fs';
 import * as cp from 'child_process';
-import spgit = require('./spgit');
 import helpers = require('./helpers');
 
 var Urls = {
@@ -22,8 +21,6 @@ var auth : sp.Auth;
 var config;
 var wkConfig:any;
 var ctx:vscode.ExtensionContext;
-
-var currentUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 
 var mkdir = (path:string, root?:string) => {
     var dirs = path.split('/'),
@@ -101,27 +98,42 @@ module sp {
                         reject(null);
                         return false;
                     }
-                    var request = https.request(self.params, (res) => {
-                        if(self.onResponse) self.onResponse(res);
-                        var data:string = '';
-                        res.on('data', (chunk) => {
-                            data += chunk;
-                        });
-                        res.on('error', (err) => {
-                            reject();
-                            self.error(err.message);
-                        });
-                        res.on('end', () => {
-                            var result = self.rawResult ? data : JSON.parse(data); 
-                            if (!self.rawResult && result['odata.error']) {
-                                self.error(result['odata.error'].message.value);
-                                reject();
-                                return false;
-                            }
-                            resolve(result);
-                        });
+                    var needsDigest = new Promise((yes,no) => {
+                        if (!self.ignoreAuth && self.params.method === 'POST') {
+                            var digest = new sp.Request();
+                            digest.params.path = '/_api/contextinfo';
+                            digest.params.method = 'POST';
+                            digest.send().then((data:any) => {
+                                auth.digest = data.FormDigestValue;
+                                self.params.headers['X-RequestDigest'] = data.FormDigestValue;
+                                yes();
+                            });
+                        }
+                        else yes();
                     });
-                    request.end(self.data || null);
+                    needsDigest.then(() => {
+                        var request = https.request(self.params, (res) => {
+                            if(self.onResponse) self.onResponse(res);
+                            var data:string = '';
+                            res.on('data', (chunk) => {
+                                data += chunk;
+                            });
+                            res.on('error', (err) => {
+                                reject();
+                                self.error(err.message);
+                            });
+                            res.on('end', () => {
+                                var result = self.rawResult ? data : JSON.parse(data); 
+                                if (!self.rawResult && result['odata.error']) {
+                                    self.error(result['odata.error'].message.value);
+                                    reject();
+                                    return false;
+                                }
+                                resolve(result);
+                            });
+                        });
+                        request.end(self.data || null);
+                    });
                 });
             });
             return promise;
@@ -185,11 +197,9 @@ module sp {
                     };
                     getAccessToken.send().then(() => {
                         var user = new sp.Request();
-                        user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName';
+                        user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Email';
                         user.send().then((data:any) => {
-                            currentUser.text = '$(hubot) ' + data.DisplayName;
-                            currentUser.tooltip = 'SPTools: Authenticated as ' + data.DisplayName;
-                            currentUser.show();
+                            helpers.setCurrentUser(user);
                             resolve();
                         })
                     });
@@ -200,9 +210,22 @@ module sp {
     };
     // Get file properties
     var getProperties = (fileName:string) => {
-        var properties = new sp.Request();
-        properties.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/?$select=Name,ServerRelativeUrl,CheckOutType,TimeLastModified';
-        return properties.send();
+        var promise = new Promise((resolve, reject) => {
+            var properties = new sp.Request();
+            properties.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/?$select=Name,ServerRelativeUrl,CheckOutType,TimeLastModified';
+            properties.send().then((data:any) => {
+                if (data.CheckOutType !== 0) resolve(data);
+                else {
+                    var checkedOutBy = new sp.Request();
+                    checkedOutBy.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/Checkedoutbyuser?$select=Title,Email';
+                    checkedOutBy.send().then((user:any) => {
+                        data.CheckedOutBy = user;
+                        resolve(data)
+                    });
+                }
+            });
+        });
+        return promise;
     }
     // Init workspace
     export var open = (options:sp.Project) => {
@@ -215,11 +238,8 @@ module sp {
         fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
         auth.project = options;
         auth.project.site = getSiteCollection(options.url);
-        spgit.init(workfolder, () => {
-            Window.showInformationMessage('GIT initialized');
-            var request = new sp.Request();
-            sp.get(config.spFolders, options, tokens);
-        });
+        var request = new sp.Request();
+        sp.get(config.spFolders, options, tokens);
     };
     // Get and store Extension context
     export var getContext = (context:vscode.ExtensionContext) => {
@@ -261,53 +281,45 @@ module sp {
     }
     // Resolve and download files
     export var get = (folders, project, tokens) => {
-		// 1. Get request digest
-		var digest = new sp.Request();
-        digest.params.path = '/_api/contextinfo';
-        digest.params.method = 'POST';
-        digest.send().then((data:any) => {
-            auth.digest = data.FormDigestValue;
-            var workfolder = config.path.split('\\').join('/') + auth.project.title;
-            var promise = new Promise((resolve,reject) => {
-                folders.forEach((folder, folderIndex) => {
-                    // 2. Get list ID
-                    var listId = new sp.Request();
-                    listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
-                    listId.send().then((data:any) => {
-                        var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
-                        // 3. Get folder items
-                        var listItems = new sp.Request();
-                        listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
-                        listItems.params.method = 'POST';
-                        listItems.params.headers['X-RequestDigest'] = auth.digest;
-                        listItems.params.headers['Content-Type'] = 'application/json; odata=verbose';
-                        listItems.data = '{ "query" : {"__metadata": { "type": "SP.CamlQuery" }, "ViewXml": "<View Scope=\'RecursiveAll\'>';
-                        listItems.data +=   '<Query><Where><And>';
-                        listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
-                        listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
-                        listItems.data +=   '</And></Where></Query>';  
-                        listItems.data += '</View>"} }';
-                        listItems.send().then((data:any) => {
-                            var items = data.value;
-                            Window.showInformationMessage(folder + ': downloading ' + items.length + ' items');
-                            // 4. Download items, create folder structure if doesn't exist
-                            items.forEach((item, itemIndex) => {
-                                // TODO: Continue if should be ignored
-                                mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
-                                sp.download(item.FileRef, workfolder).then(() => {
-                                    if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
-                                        resolve();
-                                });
+		var workfolder = config.path.split('\\').join('/') + auth.project.title;
+        var promise = new Promise((resolve,reject) => {
+            folders.forEach((folder, folderIndex) => {
+                // 1. Get list ID
+                var listId = new sp.Request();
+                listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
+                listId.send().then((data:any) => {
+                    var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
+                    // 2. Get folder items
+                    var listItems = new sp.Request();
+                    listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
+                    listItems.params.method = 'POST';
+                    listItems.params.headers['Content-Type'] = 'application/json; odata=verbose';
+                    listItems.data = '{ "query" : {"__metadata": { "type": "SP.CamlQuery" }, "ViewXml": "<View Scope=\'RecursiveAll\'>';
+                    listItems.data +=   '<Query><Where><And>';
+                    listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
+                    listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
+                    listItems.data +=   '</And></Where></Query>';  
+                    listItems.data += '</View>"} }';
+                    listItems.send().then((data:any) => {
+                        var items = data.value;
+                        Window.showInformationMessage(folder + ': downloading ' + items.length + ' items');
+                        // 3. Download items, create folder structure if doesn't exist
+                        items.forEach((item, itemIndex) => {
+                            // TODO: Continue if should be ignored
+                            mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
+                            sp.download(item.FileRef, workfolder).then(() => {
+                                if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
+                                    resolve();
                             });
                         });
                     });
                 });
             });
-            promise.then(() => {
-                // Open code using the work folder
-                
-                // cp.exec('code ' + workfolder);
-            });
+        });
+        promise.then(() => {
+            // Open code using the work folder
+            
+            // cp.exec('code ' + workfolder);
         });
 	}
     // Download specific file
@@ -335,41 +347,30 @@ module sp {
     export var upload = (fileName:string) => {
         var fileLeaf:string = fileName.split('/').pop();
         var folder:string = fileName.split(fileLeaf)[0];
-        var threads = new Promise((resolve, reject) => {
-            var buffer:Buffer;
-            var requestDigest:string;
-            // 1. Get buffer
-            fs.readFile(vscode.workspace.rootPath + fileName, (err, data) => {
-                if (err) reject(err);
-                buffer = data;
-                if (requestDigest) resolve({buffer: buffer, digest: requestDigest});
-            });
-            // 2. Get request digest
-            var digest = new sp.Request();
-            digest.params.path = '/_api/contextinfo';
-            digest.params.method = 'POST';
-            digest.send().then((data:any) => {
-                auth.digest = data.FormDigestValue;
-                requestDigest = data.FormDigestValue;
-                if (buffer) resolve({buffer: buffer, digest: requestDigest});
-            });
-        });
         var promise = new Promise((resolve, reject) => {
-            threads.then((data:any) => {
-                // 3. Upload
+            fs.readFile(vscode.workspace.rootPath + fileName, (err, data) => {
+                if (err) throw err;
                 var upload = new sp.Request();
                 upload.params.path = '/_api/web/getfolderbyserverrelativeurl(\'' + encodeURI(folder) + '\')/files/add(overwrite=true,url=\'' + encodeURI(fileLeaf) + '\')';
                 upload.params.method = 'POST';
-                upload.data = data.buffer;
-                upload.params.headers['X-RequestDigest'] = data.digest;
+                upload.data = data;
                 upload.send().then(() => {
                     resolve();
                 });
-            }, (err:any) => {
-                resolve(err);
             });
         });
         return promise;
     };
+    // Check in, out or discard checkout
+    export var checkinout = (file:string, action:number) => {
+        var suffix:string;
+        var request = new sp.Request()
+        if (!action) suffix = 'CheckIn(\'' + encodeURI('comment=\'' + config.checkInComment + ', checkintype=1\'') + '\')';
+        else if (action === 1) suffix = 'checkout';
+        else if (action === 2) suffix = 'undocheckout';
+        request.params.path = '/_api/web/GetFileByServerRelativeUrl(\'' + encodeURI(file) + '\')/' + suffix;
+        request.params.method = 'POST';
+        return request.send();
+    }
 };
 export = sp;
