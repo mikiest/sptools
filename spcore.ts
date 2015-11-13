@@ -99,7 +99,7 @@ module sp {
                         return false;
                     }
                     var needsDigest = new Promise((yes,no) => {
-                        if (!self.ignoreAuth && self.params.method === 'POST') {
+                        if (!self.ignoreAuth && self.params.method === 'POST' && self.params.path.substring(self.params.path.length - 16, self.params.path.length) !== '_api/contextinfo') {
                             var digest = new sp.Request();
                             digest.params.path = '/_api/contextinfo';
                             digest.params.method = 'POST';
@@ -199,7 +199,7 @@ module sp {
                         var user = new sp.Request();
                         user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Email';
                         user.send().then((data:any) => {
-                            helpers.setCurrentUser(user);
+                            helpers.setCurrentUser(data);
                             resolve();
                         })
                     });
@@ -341,7 +341,7 @@ module sp {
                 });
             });
         });
-        return promise;        
+        return promise;
     }
     // Resolve and download files
     export var upload = (fileName:string) => {
@@ -364,10 +364,20 @@ module sp {
     // Check in, out or discard checkout
     export var checkinout = (file:string, action:number) => {
         var suffix:string;
+        var success:string;
         var request = new sp.Request()
-        if (!action) suffix = 'CheckIn(\'' + encodeURI('comment=\'' + config.checkInComment + ', checkintype=1\'') + '\')';
-        else if (action === 1) suffix = 'checkout';
-        else if (action === 2) suffix = 'undocheckout';
+        if (!action) {
+            suffix = 'CheckIn(' + encodeURI('comment=\'' + vscode.workspace.getConfiguration('sptools').get('checkInComment') + '\',checkintype=1') + ')';
+            success = ' is now checked in.';
+        }
+        else if (action === 1) {
+            suffix = 'checkout';
+            success = ' is now checked out to you.';
+        }
+        else if (action === 2) {
+            suffix = 'undocheckout';
+            success = ' check out has been discarded.';
+        }
         request.params.path = '/_api/web/GetFileByServerRelativeUrl(\'' + encodeURI(file) + '\')/' + suffix;
         request.params.method = 'POST';
         return request.send();

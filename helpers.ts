@@ -3,6 +3,7 @@ import Window = vscode.window;
 
 var ctx:vscode.ExtensionContext;
 var sbUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+sbUser.priority = 99;
 
 module helpers {
 	export var getContext = (context:vscode.ExtensionContext) => {

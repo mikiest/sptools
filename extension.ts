@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 		sbStatus.text = '$(alert) Checked out';
 		sbStatus.tooltip = 'File is presently checked out';
 		if (!status) {
-			sbStatus.tooltip += ' to ' + (helpers.currentUser.email === data.CheckedOutBy.Email) ? 'you' : data.CheckedOutBy.Title;
+			sbStatus.tooltip += ' to ' + ((helpers.currentUser.email === data.CheckedOutBy.Email) ? 'you' : data.CheckedOutBy.Title);
 			if (helpers.currentUser.email === data.CheckedOutBy.Email) sbStatus.text = '$(check) Checked out to you';
 			sbStatus.show();
 		}
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 		sp.checkFileState(file).then((data:any) => {
 			var modified:Date = new Date(data.TimeLastModified);
 			updateStatus(data);
-			sbModified.text = modified <= data.LocalModified ? '$(check) up to date' : '$(alert) update required';
+			sbModified.text = modified <= data.LocalModified ? '$(check) Up to date' : '$(alert) Update required';
 			sbModified.tooltip = modified <= data.LocalModified ? 'File is up to date or more recent' : 'File is not up to date';
 		});
 	});
@@ -78,32 +78,57 @@ export function activate(context: vscode.ExtensionContext) {
 	// Check in, out or discard current file checkout
 	var checkInOut = Commands.registerCommand('sp.checkinout', () => {
 		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
-		sp.checkFileState(file).then((data:any) => {
-			var status:number = data.CheckOutType;
+		sp.checkFileState(file).then((props:any) => {
+			var status:number = props.CheckOutType;
 			var checkinLabel:string = 'Check in';
 			var checkoutLabel:string = 'Check out';
 			var discardLabel:string = 'Discard checkout';
 			var continueLabel:string = 'Continue';
-			updateStatus(data);
+			updateStatus(props);
+			var success = (data:any) => {
+			};
 			// File is checked out
 			if (!status) {
 				// File is checked out to current user
-				if (helpers.currentUser.email === data.CheckedOutBy.Email) {
+				if (helpers.currentUser.email === props.CheckedOutBy.Email) {
 					Window.showInformationMessage(file + ' is checked out to you.', checkinLabel, discardLabel).then((selection) => {
-						if (selection === checkinLabel)
-							sp.checkinout(file, 0)
+						if (selection === checkinLabel) {
+							var modified:Date = new Date(props.TimeLastModified);
+							var uptodate:boolean = modified <= props.LocalModified;
+							var promise = new Promise((resolve, reject) => {
+								if (modified.getTime() === props.LocalModified.getTime()) resolve();
+								else
+									Window.showWarningMessage(file + ' is '+ (uptodate ? 'older' : 'more recent') + ' on server.' , 'Keep server version', 'Upload local version').then((selection) => {
+										var action:string = selection === 'Keep server version' ? 'download': 'upload';
+										sp[action](file).then((data:any) => {
+											resolve();
+										});
+									});
+							});
+							promise.then(() => {
+								sp.checkinout(file, 0).then((data:any) => {
+									sp.checkFileState(file).then((newProps:any) => {
+										var modified:number = new Date(newProps.TimeLastModified).getTime() / 1000 | 0;
+										fs.utimes(vscode.workspace.rootPath + file, modified, modified, (err) => {
+											updateStatus(newProps);
+											if (err) throw err;
+										});
+									});
+								});
+							}, () => {}); 
+						}
 						else if (selection === discardLabel)
 							Window.showWarningMessage('You are about to discard your changes on ' + file, 'Continue').then((selection) => {
-								sp.checkinout(file, 2);
+								sp.checkinout(file, 2).then(success);
 							});
 					});
 				}
 				// File is checked out to another user
 				else {
-					Window.showInformationMessage(file + ' is checked out to ' + data.CheckedOutBy.Title, discardLabel).then((selection) => {
+					Window.showInformationMessage(file + ' is checked out to ' + props.CheckedOutBy.Title, discardLabel).then((selection) => {
 						if (selection === discardLabel)
-							Window.showWarningMessage('You are about to discard the changes by ' + data.CheckedOutBy.Title + ' on ' + file, 'Continue').then((selection) => {
-								sp.checkinout(file, 2);
+							Window.showWarningMessage('You are about to discard the changes by ' + props.CheckedOutBy.Title + ' on ' + file, 'Continue').then((selection) => {
+								sp.checkinout(file, 2).then(success);
 							});
 					});
 				}
@@ -112,7 +137,7 @@ export function activate(context: vscode.ExtensionContext) {
 			else
 				Window.showInformationMessage(file + ' is not checked out', checkoutLabel).then((selection) => {
 					if (selection === checkoutLabel)
-						sp.checkinout(file, 1);
+						sp.checkinout(file, 1).then(success);
 				});
 		});
 	});
