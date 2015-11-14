@@ -258,6 +258,7 @@ module sp {
     export var getConfig = (path:string) => {
         config = vscode.workspace.getConfiguration('sptools');
         var wk:string = config.workFolder;
+        if (wk === '$$home') wk = ((process.platform === 'win32') ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
         config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
         try { fs.statSync(config.path); }
         catch (err) {
@@ -283,38 +284,41 @@ module sp {
     export var get = (folders, project, tokens) => {
 		var workfolder = config.path.split('\\').join('/') + auth.project.title;
         var promise = new Promise((resolve,reject) => {
-            folders.forEach((folder, folderIndex) => {
-                // 1. Get list ID
-                var listId = new sp.Request();
-                listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
-                listId.send().then((data:any) => {
-                    var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
-                    // 2. Get folder items
-                    var listItems = new sp.Request();
-                    listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
-                    listItems.params.method = 'POST';
-                    listItems.params.headers['Content-Type'] = 'application/json; odata=verbose';
-                    listItems.data = '{ "query" : {"__metadata": { "type": "SP.CamlQuery" }, "ViewXml": "<View Scope=\'RecursiveAll\'>';
-                    listItems.data +=   '<Query><Where><And>';
-                    listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
-                    listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
-                    listItems.data +=   '</And></Where></Query>';  
-                    listItems.data += '</View>"} }';
-                    listItems.send().then((data:any) => {
-                        var items = data.value;
-                        Window.showInformationMessage(folder + ': downloading ' + items.length + ' items');
-                        // 3. Download items, create folder structure if doesn't exist
-                        items.forEach((item, itemIndex) => {
-                            // TODO: Continue if should be ignored
-                            mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
-                            sp.download(item.FileRef, workfolder).then(() => {
-                                if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
-                                    resolve();
+            authenticate().then(() => {
+                folders.forEach((folder, folderIndex) => {
+                    // 1. Get list ID
+                    var listId = new sp.Request();
+                    listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
+                    listId.send().then((data:any) => {
+                        var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
+                        // 2. Get folder items
+                        var listItems = new sp.Request();
+                        listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
+                        listItems.params.method = 'POST';
+                        listItems.params.headers['Content-Type'] = 'application/json; odata=verbose';
+                        listItems.data = '{ "query" : {"__metadata": { "type": "SP.CamlQuery" }, "ViewXml": "<View Scope=\'RecursiveAll\'>';
+                        listItems.data +=   '<Query><Where><And>';
+                        listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
+                        listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
+                        listItems.data +=   '</And></Where></Query>';  
+                        listItems.data += '</View>"} }';
+                        listItems.send().then((data:any) => {
+                            var items = data.value;
+                            Window.showInformationMessage(folder + ': downloading ' + items.length + ' items');
+                            // 3. Download items, create folder structure if doesn't exist
+                            items.forEach((item, itemIndex) => {
+                                // TODO: Continue if should be ignored
+                                mkdir(item.FileRef.split(item.FileLeafRef)[0], workfolder);
+                                sp.download(item.FileRef, workfolder).then(() => {
+                                    if(itemIndex === items.length - 1 && folderIndex === folders.length - 1)
+                                        resolve();
+                                });
                             });
                         });
                     });
                 });
             });
+            
         });
         promise.then(() => {
             // Open code using the work folder

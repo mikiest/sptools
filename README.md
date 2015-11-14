@@ -50,7 +50,7 @@ For now it only stores the SharePoint site URL.
 ## Commands
 ------
 
-### SPTools: Init
+### SPTools: New workspace
 
 Create a new SharePoint workspace from a remote site.
 

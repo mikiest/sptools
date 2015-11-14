@@ -8,3 +8,5 @@ test/**
 tsconfig.json
 vsc-extension-quickstart.md
 spgit.ts
+sptools-128.png
+sptools-256.png

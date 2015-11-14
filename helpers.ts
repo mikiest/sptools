@@ -89,7 +89,9 @@ module helpers {
 					});
 					return false;
 				}
-				Window.showQuickPick(picks).then((selection) => {
+				var options = <vscode.QuickPickOptions> {};
+				options.placeHolder = 'Authentication to ' + site + ' needed.';
+				Window.showQuickPick(picks, options).then((selection) => {
 					if(selection === 'Add credentials') {
 						self.prompt(site).then((creds) => {
 							resolve(creds);
