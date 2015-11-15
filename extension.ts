@@ -11,15 +11,17 @@ export function activate(context: vscode.ExtensionContext) {
 	// Status bar icons
 	var sbModified:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	var sbStatus:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	sbModified.command = 'sp.date';
+	sbStatus.command = 'sp.checkinout';
 	// Update status bar indicators
 	var updateStatus = (data:any) => {
 		var status:number = data.CheckOutType;
 		sbStatus.hide();
-		sbStatus.text = '$(alert) Checked out';
+		sbStatus.text = '$(link-external) Checked out';
 		sbStatus.tooltip = 'File is presently checked out';
 		if (!status) {
 			sbStatus.tooltip += ' to ' + ((helpers.currentUser.email === data.CheckedOutBy.Email) ? 'you' : data.CheckedOutBy.Title);
-			if (helpers.currentUser.email === data.CheckedOutBy.Email) sbStatus.text = '$(check) Checked out to you';
+			if (helpers.currentUser.email === data.CheckedOutBy.Email) sbStatus.text = '$(link-external) Checked out to you';
 			sbStatus.show();
 		}
 	};
@@ -31,6 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
 			|| file === '/spconfig.json'
 			|| file.substring(0, 8) === '/.vscode'
 			|| file.substring(0, 5) === '/.git';
+		try { fs.statSync(vscode.workspace.rootPath + '/spconfig.json'); }
+		catch (e){ ignore = true;}
 		return !vscode.workspace.rootPath || ignore;
 	};
 	
@@ -49,7 +53,10 @@ export function activate(context: vscode.ExtensionContext) {
 			options.placeHolder = 'http(s)://domain.com';
 			Window.showInputBox(options).then((selection) => {
 				project.url = selection;
-				sp.open(project);
+				sp.open(project).then(() => {
+					Window.showInformationMessage('Workspace created.');
+					// TODO: Suggest to open workspace
+				});
 			});
 		});
 	});
@@ -94,11 +101,12 @@ export function activate(context: vscode.ExtensionContext) {
 			var checkoutLabel:string = 'Check out';
 			var discardLabel:string = 'Discard checkout';
 			var continueLabel:string = 'Continue';
-			updateStatus(props);
-			var success = (data:any) => {
-				updateStatus(data);
-			};
 			var fileLeaf:string = file.split('/').pop();
+			updateStatus(props);
+			var success = (data:any, message) => {
+				updateStatus(data);
+				Window.showInformationMessage(fileLeaf + message);
+			};
 			// File is checked out
 			if (!status) {
 				// File is checked out to current user
@@ -122,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
 									sp.checkFileState(file).then((newProps:any) => {
 										var modified:number = new Date(newProps.TimeLastModified).getTime() / 1000 | 0;
 										fs.utimes(vscode.workspace.rootPath + file, modified, modified, (err) => {
-											success(newProps);
+											success(newProps, ' is now checked in.');
 											if (err) throw err;
 										});
 									});
@@ -132,7 +140,9 @@ export function activate(context: vscode.ExtensionContext) {
 						else if (selection === discardLabel)
 							Window.showWarningMessage('You are about to discard your changes on ' + fileLeaf, 'Continue').then((selection) => {
 								sp.checkinout(file, 2).then(() => {
-									sp.checkFileState(file).then(success);
+									sp.checkFileState(file).then((data:any)=> {
+										success(data, ' checkout has been discarded.');
+									});
 								});
 							});
 					});
@@ -142,7 +152,9 @@ export function activate(context: vscode.ExtensionContext) {
 						if (selection === discardLabel)
 							Window.showWarningMessage('You are about to discard the changes by ' + props.CheckedOutBy.Title + ' on ' + fileLeaf, 'Continue').then((selection) => {
 								sp.checkinout(file, 2).then(() => {
-									sp.checkFileState(file).then(success);
+									sp.checkFileState(file).then((data:any)=> {
+										success(data, ' checkout has been discarded.');
+									});
 								});
 							});
 					});
@@ -152,7 +164,9 @@ export function activate(context: vscode.ExtensionContext) {
 				Window.showInformationMessage(fileLeaf + ' is not checked out', checkoutLabel).then((selection) => {
 					if (selection === checkoutLabel)
 						sp.checkinout(file, 1).then(() => {
-							sp.checkFileState(file).then(success);
+							sp.checkFileState(file).then((data:any)=> {
+								success(data, ' is now checked out to you.');
+							});
 						});
 				});
 		});

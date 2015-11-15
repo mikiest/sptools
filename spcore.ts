@@ -231,7 +231,7 @@ module sp {
     export var open = (options:sp.Project) => {
 		if( !options.title || !options.url) {
             Window.showWarningMessage('Please fill all the inputs');
-            return false;
+            return;
         }
         var workfolder = config.path + options.title;
         mkdir(workfolder);
@@ -239,7 +239,7 @@ module sp {
         auth.project = options;
         auth.project.site = getSiteCollection(options.url);
         var request = new sp.Request();
-        sp.get(config.spFolders, options, tokens);
+        return sp.get(config.spFolders, tokens);
     };
     // Get and store Extension context
     export var getContext = (context:vscode.ExtensionContext) => {
@@ -258,7 +258,7 @@ module sp {
     export var getConfig = (path:string) => {
         config = vscode.workspace.getConfiguration('sptools');
         var wk:string = config.workFolder;
-        if (wk === '$$home') wk = ((process.platform === 'win32') ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
+        if (wk === '$home') wk = ((process.platform === 'win32') ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
         config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
         try { fs.statSync(config.path); }
         catch (err) {
@@ -281,10 +281,11 @@ module sp {
         return promise;
     }
     // Resolve and download files
-    export var get = (folders, project, tokens) => {
+    export var get = (folders, tokens) => {
 		var workfolder = config.path.split('\\').join('/') + auth.project.title;
         var promise = new Promise((resolve,reject) => {
             authenticate().then(() => {
+                var count:number = 0;
                 folders.forEach((folder, folderIndex) => {
                     // 1. Get list ID
                     var listId = new sp.Request();
@@ -304,7 +305,9 @@ module sp {
                         listItems.data += '</View>"} }';
                         listItems.send().then((data:any) => {
                             var items = data.value;
-                            Window.showInformationMessage(folder + ': downloading ' + items.length + ' items');
+                            count += items.length;
+                            if (folderIndex === folders.length - 1)
+                                Window.showInformationMessage('Fetching ' + count + ' items from ' + auth.project.url + '.');
                             // 3. Download items, create folder structure if doesn't exist
                             items.forEach((item, itemIndex) => {
                                 // TODO: Continue if should be ignored
@@ -320,11 +323,7 @@ module sp {
             });
             
         });
-        promise.then(() => {
-            // Open code using the work folder
-            
-            // cp.exec('code ' + workfolder);
-        });
+        return promise;
 	}
     // Download specific file
     export var download = (fileName:string, workfolder:string) => {
