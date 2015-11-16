@@ -173,7 +173,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	// Refresh workspace
 	var refresh = Commands.registerCommand('sp.refresh', () => {
-		
+		Window.showInformationMessage('Command not implemented yet.');
 	});
 	// Refresh workspace
 	var resetCredentials = Commands.registerCommand('sp.credentials.reset', () => {

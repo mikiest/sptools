@@ -5,6 +5,8 @@ var ctx:vscode.ExtensionContext;
 var sbUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 sbUser.priority = 99;
 
+var premCred:helpers.spCredentials;
+
 module helpers {
 	export var getContext = (context:vscode.ExtensionContext) => {
 		ctx = context;
@@ -40,18 +42,32 @@ module helpers {
 			};
 			var self = this;
 			var promise = new Promise((resolve, reject) => {
-				Window.showInputBox(options).then((selection) => {
-					credentials.username = selection;
-					options.prompt = 'Password?';
-					options.placeHolder = 'Password';
-					options.password = true;
+				var prompt = () => {
 					Window.showInputBox(options).then((selection) => {
-						credentials.password = selection;
-						credentials.site = site;
-						self.store(credentials);
-						resolve(credentials);
+						credentials.username = selection;
+						options.prompt = 'Password?';
+						options.placeHolder = 'Password';
+						options.password = true;
+						if (!selection) {
+							Window.showWarningMessage('Username required.', 'Retry').then((selection) => {
+								if (selection === 'Retry') prompt();
+							});
+							return false;
+						}
+						Window.showInputBox(options).then((selection) => {
+							credentials.password = selection;
+							credentials.site = site;
+							if (!selection) {
+								Window.showWarningMessage('Password required.', 'Retry').then((selection) => {
+									if (selection === 'Retry') prompt();
+								});
+								return false;
+							}
+							self.store(credentials);
+							resolve(credentials);
+						});
 					});
-				});
+				};
 			});
 			return promise;
 		}
@@ -66,6 +82,7 @@ module helpers {
 		// Store credentials in cache
 		private store = (credentials:helpers.spCredentials) => {
 			if (!vscode.workspace.getConfiguration('sptools').get('storeCredentials')) return false;
+			premCred = credentials;
 			var exists:boolean = this.stored.filter((cred) => {
 				return cred.username === credentials.username;
 			}).length > 0;
@@ -83,6 +100,10 @@ module helpers {
 			var self = this;
 			picks.push('Add credentials');
 			var promise = new Promise((resolve, reject) => {
+				if (premCred) {
+					resolve(premCred);
+					return false;
+				}
 				if (!suggestions.length) {
 					self.prompt(site).then((creds) => {
 						resolve(creds);
@@ -95,6 +116,12 @@ module helpers {
 					if(selection === 'Add credentials') {
 						self.prompt(site).then((creds) => {
 							resolve(creds);
+						});
+						return false;
+					}
+					if (!selection) {
+						Window.showWarningMessage('Authentication to ' + site + ' needed.', 'Retry').then((selection) => {
+							if (selection === 'Retry') self.get(site);
 						});
 						return false;
 					}

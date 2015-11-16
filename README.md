@@ -9,13 +9,13 @@ The purpose of this extension is to help **developers** to work on remote **Shar
 ## Extension settings
 ------
 
-These are your extension settings:
+These are your extension settings (refer to the description property for more details):
 
 ```json
 "sptools.workFolder": {
 	"type": "string",
-	"default": "c:\\\\work\\\\",
-	"description": "Path to your top level work folder"
+	"default": "$home",
+	"description": "Path to your top level work folder. Default to home/sptools (cross platform)."
 },
 "sptools.spFolders": {
 	"type": "array",
@@ -23,12 +23,17 @@ These are your extension settings:
 		"/_catalogs/masterpage/sptools",
 		"/style library/en-us/themable/sptools"
 	],
-	"description": "Folders to be fetched from SharePoint sites"
+	"description": "Folders to be fetched from SharePoint sites. Use server relative paths."
 },
 "sptools.storeCredentials": {
 	"type": "boolean",
 	"default": true,
-	"description": "Set to false if you don't want credentials to be cached"
+	"description": "Set to false if you don't want credentials to be cached."
+},
+"sptools.checkInComment": {
+	"type": "string",
+	"default": "From SPTools for VS Code",
+	"description": "Your check in comment."
 }
 ```
 
@@ -38,7 +43,7 @@ To override them, specify your own values in `File > Preferences` then either `U
 
 ### Folders creation
 
-Please keep in mind that any non existing folder used in the config will be created.
+Please keep in mind that any non existing folder used in the config will be created, specifically the working folder `sptools.workFolder`.
 
 ## spconfig.json
 ------
@@ -88,5 +93,27 @@ Sync entire workspace (use with caution)
 Credentials are not stored in files, but rather kept in the extension memory.
 
 Use `SPTools: Reset credentials cache` command to reset the cache.
+
+## Compatibility
+------
+
+- SharePoint 2013 online
+- SharePoint 2013 on premise
+
+## Known issues
+------
+
+- `Sync entire workspace` command not implemented yet
+- In some cases time zone difference between SharePoint site and VS Code client can result in wrong "uptodate" notice
+- Image files are not downloaded correctly
+
+## What to expect next
+------
+
+- SharePoint 2010 compatibility
+- Ignore specific files option using paterns
+- Use WinCred or environment speicfic credentials storage
+- Auto checkin/out files option
+- SharePoint specific snippets
 
 ** Enjoy!**

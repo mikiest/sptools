@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import Window = vscode.window;
 import * as https from 'https';
+import * as http from 'http';
 import * as constants from 'constants';
 var cookie = require('cookie');
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import helpers = require('./helpers');
+var httpntlm = require('httpntlm');
 
 var Urls = {
     login: 'login.microsoftonline.com',
@@ -17,7 +19,10 @@ var tokens = {
     access: ''
 };
 
-var auth : sp.Auth;
+var version:number;
+var jsonLight:boolean = true;
+
+var auth:sp.Auth;
 var config;
 var wkConfig:any;
 var ctx:vscode.ExtensionContext;
@@ -37,8 +42,8 @@ module sp {
     export interface Params {
         hostname: string;
         path?: string;
-        method: string;
-        secureOptions: number;
+        method?: string;
+        secureOptions?: number;
         headers: any;
         keepAlive?: boolean;
     }
@@ -53,49 +58,81 @@ module sp {
         token: string;
         digest: string;
         project: Project;
+        credentials: helpers.spCredentials;
         constructor(){
         }
     }
     // Request wrapper
     export class Request {
         digest: string;
+        ssl: boolean;
         params: sp.Params;
         data: any;
         rawResult: boolean;
         ignoreAuth: boolean;
         onResponse: (any) => void;
         constructor () {
+            this.ssl = auth.project.url.split(':')[0] === 'https';
             this.params = {
                 method: 'GET',
                 hostname: auth.project.url.split('/')[2],
-                secureOptions: constants.SSL_OP_NO_TLSv1_2,
                 headers: {
-                    'Accept': 'application/json; odata=nometadata'
+                    'Accept': 'application/json; odata=' + (jsonLight ? 'nometadata' : 'verbose')
                 }
             };
-            if (auth.token) this.params.headers.Cookie = auth.token;
+            if (this.ssl) this.params.headers.secureOptions = constants.SSL_OP_NO_TLSv1_2;
+            if (auth.token && version === 16) this.params.headers.Cookie = auth.token;
             this.rawResult = false; 
         }
-        private error = (error) => {
-            Window.showWarningMessage(error);
+        private error = (error:string) => {
+            Window.showWarningMessage(error || 'Sorry, something went wrong.');
         }
         // Send and authenticate if needed
         send = () => {
             var self = this;
             var authenticated = new Promise((resolve, reject) => {
-                if (auth.token || self.ignoreAuth) resolve();
+                if (auth.token || self.ignoreAuth || auth.credentials) resolve();
                 else
                     authenticate().then(() => {
                         resolve();
                     });
             });
             var promise = new Promise((resolve,reject) => {
+                var prem = () => {
+                    var options:any = {
+                        url: auth.project.url + self.params.path,
+                        username: auth.credentials.username,
+                        password: auth.credentials.password,
+                        workstation: '',
+                        domain: '',
+                        headers: self.params.headers
+                    };
+                    if (options.headers.Accept === "application/json; odata=nometadata" && !jsonLight) options.headers.Accept = "application/json; odata=verbose";
+                    if (self.data) options.body = self.data;
+                    if (self.params.headers['X-RequestDigest']) options.headers['X-RequestDigest'] = self.params.headers['X-RequestDigest'];
+                    httpntlm[self.params.method.toLocaleLowerCase()](options, (err, res) => {
+                        if (err) {
+                            this.error(err.message);
+                            return false;
+                        }
+                        if (res.statusCode === 401) {
+                            self.error('Authentication failed.');
+                            return false;
+                        }
+                        else if (res.statusCode === 500) {
+                            self.error(JSON.parse(res.body).error.message);
+                            return false;
+                        }
+                        var result = self.rawResult ? res.body : JSON.parse(res.body); 
+                        resolve(result);
+                    });
+                };
                 authenticated.then(() => {
                     if (!self.ignoreAuth) self.params.path = auth.project.site + self.params.path;
-                    if (!self.params.headers.Cookie && auth.token) self.params.headers.Cookie = auth.token;
+                    if (!self.params.headers.Cookie && auth.token && version === 16) self.params.headers.Cookie = auth.token;
                     if( !self.params.path.length ) {
                         console.warn('No request path specified.');
-                        reject(null);
+                        // reject(null);
                         return false;
                     }
                     var needsDigest = new Promise((yes,no) => {
@@ -104,29 +141,36 @@ module sp {
                             digest.params.path = '/_api/contextinfo';
                             digest.params.method = 'POST';
                             digest.send().then((data:any) => {
-                                auth.digest = data.FormDigestValue;
-                                self.params.headers['X-RequestDigest'] = data.FormDigestValue;
+                                var digest = data.FormDigestValue || data.d.GetContextWebInformation.FormDigestValue;
+                                auth.digest = digest;
+                                self.params.headers['X-RequestDigest'] = digest;
                                 yes();
                             });
                         }
                         else yes();
                     });
                     needsDigest.then(() => {
-                        var request = https.request(self.params, (res) => {
-                            if(self.onResponse) self.onResponse(res);
+                        var req = self.ssl ? https.request : http.request;
+                        if (version !== 16) {
+                            prem();
+                            return false;
+                        }
+                        var request = req(self.params, (res) => {
+                            if (self.onResponse) self.onResponse(res);
+                            if (version !== 16) return false;
                             var data:string = '';
                             res.on('data', (chunk) => {
                                 data += chunk;
                             });
                             res.on('error', (err) => {
-                                reject();
+                                // reject();
                                 self.error(err.message);
                             });
                             res.on('end', () => {
-                                var result = self.rawResult ? data : JSON.parse(data); 
+                                var result = self.rawResult ? data : (jsonLight ? JSON.parse(data) : JSON.parse(data).d); 
                                 if (!self.rawResult && result['odata.error']) {
                                     self.error(result['odata.error'].message.value);
-                                    reject();
+                                    // reject();
                                     return false;
                                 }
                                 resolve(result);
@@ -147,64 +191,94 @@ module sp {
         var domain:string = split[2];
         return (split.length > 3) ? url.split(domain)[1] : '';
     };
+    // Get nometadata compatibility
+    var metadata = (url:string) => {
+        var promise = new Promise((resolve,reject) => {
+            var req = new sp.Request();
+            req.params.path = '/_api/web';
+            req.params.headers.Accept = 'application/json; odata=nometadata';
+            req.rawResult = true;
+            req.send().then((data:any) => {
+                try {
+                    JSON.parse(data);
+                } catch (e) {
+                    jsonLight = false;
+                }
+                resolve();
+            });
+        });
+        return promise;
+    };
     // SharePoint authentication
     var authenticate = () => {
+        // DOING: Check online/prem/2010 and behave differently
+        var get = auth.project.url.split(':')[0] === 'https' ? https.get : http.get;
+        
         var credentials = new helpers.Credentials();
         var promise = new Promise((resolve, reject) => {
-            credentials.get(auth.project.url.split('/')[2]).then((credentials:helpers.spCredentials) => {
-                var enveloppe:string = fs.readFileSync(ctx.extensionPath + '/credentials.xml', 'utf8');
-                var compiled:string = enveloppe.split('[username]').join(credentials.username);
-                compiled = compiled.split('[password]').join(credentials.password);
-                compiled = compiled.split('[endpoint]').join(auth.project.url);
-                // 1. Send: XML with credentials, Get: Security token
-                var getSecurityToken = new sp.Request();
-                getSecurityToken.params.hostname = Urls.login;
-                getSecurityToken.params.path = Urls.sts;
-                getSecurityToken.params.method = 'POST';
-                getSecurityToken.params.keepAlive = true;
-                getSecurityToken.params.headers = {
-                    'Accept': 'application/json; odata=verbose',
-                    'Content-Type': 'application/xml',
-                    'Content-Length': Buffer.byteLength(compiled)
-                };
-                getSecurityToken.ignoreAuth = true;
-                delete getSecurityToken.params.secureOptions;
-                getSecurityToken.data = compiled;
-                getSecurityToken.rawResult = true;
-                getSecurityToken.send().then((data:string) => {
-                    var bits = data.split('<wsse:BinarySecurityToken Id="Compact0">');
-                    if(bits.length < 2) {
-                        Window.showErrorMessage('Authentication failed.');
+            get(auth.project.url, (res) => {
+                version = parseInt(res.headers.microsoftsharepointteamservices.split('.')[0]);
+                credentials.get(auth.project.url.split('/')[2]).then((credentials:helpers.spCredentials) => {
+                    if (version !== 16) {
+                        auth.credentials = credentials;
+                        metadata(auth.project.url).then(() => {
+                            sp.getCurrentUserProperties().then(() => {
+                                resolve();
+                            })
+                        });
                         return false;
                     }
-                    tokens.security = bits[1].split('</wsse:BinarySecurityToken>')[0];
-                    // 2. Send: Security token, Get: Access token (cookies)
-                    var getAccessToken = new sp.Request();
-                    getAccessToken.params.path = Urls.signin;
-                    getAccessToken.params.method = 'POST';
-                    getAccessToken.params.headers = {
-                        'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Content-Length': Buffer.byteLength(tokens.security)
+                    var enveloppe:string = fs.readFileSync(ctx.extensionPath + '/credentials.xml', 'utf8');
+                    var compiled:string = enveloppe.split('[username]').join(credentials.username);
+                    compiled = compiled.split('[password]').join(credentials.password);
+                    compiled = compiled.split('[endpoint]').join(auth.project.url);
+                    // 1. Send: XML with credentials, Get: Security token
+                    var getSecurityToken = new sp.Request();
+                    getSecurityToken.params.hostname = Urls.login;
+                    getSecurityToken.params.path = Urls.sts;
+                    getSecurityToken.params.method = 'POST';
+                    getSecurityToken.params.keepAlive = true;
+                    getSecurityToken.params.headers = {
+                        'Accept': 'application/json; odata=verbose',
+                        'Content-Type': 'application/xml',
+                        'Content-Length': Buffer.byteLength(compiled)
                     };
-                    getAccessToken.rawResult = true;
-                    getAccessToken.data = tokens.security;
-                    getAccessToken.ignoreAuth = true;
-                    getAccessToken.onResponse = (res) => {
-                        var cookies = cookie.parse(res.headers["set-cookie"].join(";"));
-                        tokens.access =  'rtFa=' + cookies['rtFa'] + '; FedAuth=' + cookies['FedAuth'] + ';';
-                        auth.token = tokens.access;
-                    };
-                    getAccessToken.send().then(() => {
-                        var user = new sp.Request();
-                        user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Email';
-                        user.send().then((data:any) => {
-                            helpers.setCurrentUser(data);
-                            resolve();
-                        })
+                    getSecurityToken.ignoreAuth = true;
+                    delete getSecurityToken.params.secureOptions;
+                    getSecurityToken.data = compiled;
+                    getSecurityToken.rawResult = true;
+                    getSecurityToken.send().then((data:string) => {
+                        var bits = data.split('<wsse:BinarySecurityToken Id="Compact0">');
+                        if(bits.length < 2) {
+                            Window.showErrorMessage('Authentication failed.');
+                            return false;
+                        }
+                        tokens.security = bits[1].split('</wsse:BinarySecurityToken>')[0];
+                        // 2. Send: Security token, Get: Access token (cookies)
+                        var getAccessToken = new sp.Request();
+                        getAccessToken.params.path = Urls.signin;
+                        getAccessToken.params.method = 'POST';
+                        getAccessToken.params.headers = {
+                            'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'Content-Length': Buffer.byteLength(tokens.security)
+                        };
+                        getAccessToken.rawResult = true;
+                        getAccessToken.data = tokens.security;
+                        getAccessToken.ignoreAuth = true;
+                        getAccessToken.onResponse = (res) => {
+                            var cookies = cookie.parse(res.headers["set-cookie"].join(";"));
+                            tokens.access =  'rtFa=' + cookies['rtFa'] + '; FedAuth=' + cookies['FedAuth'] + ';';
+                            auth.token = tokens.access;
+                        };
+                        getAccessToken.send().then(() => {
+                            sp.getCurrentUserProperties().then(() => {
+                                resolve();
+                            })
+                        });
                     });
                 });
-            });
+            });            
         });
         return promise;
     };
@@ -214,13 +288,14 @@ module sp {
             var properties = new sp.Request();
             properties.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/?$select=Name,ServerRelativeUrl,CheckOutType,TimeLastModified';
             properties.send().then((data:any) => {
-                if (data.CheckOutType !== 0) resolve(data);
+                var result = data.d || data;
+                if (result.CheckOutType !== 0) resolve(result);
                 else {
                     var checkedOutBy = new sp.Request();
                     checkedOutBy.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/Checkedoutbyuser?$select=Title,Email';
                     checkedOutBy.send().then((user:any) => {
-                        data.CheckedOutBy = user;
-                        resolve(data)
+                        result.CheckedOutBy = user.d || user;
+                        resolve(result)
                     });
                 }
             });
@@ -291,7 +366,14 @@ module sp {
                     var listId = new sp.Request();
                     listId.params.path = '/_api/web/GetFolderByServerRelativeUrl(\'' + encodeURI(auth.project.site + folder) + '\')/properties?$select=vti_listname';
                     listId.send().then((data:any) => {
-                        var id = data.vti_x005f_listname.split('{')[1].split('}')[0];
+                        var error = data.error;
+                        if (error) {
+                            if (error.message === 'File Not Found.' || error.message.value === 'File Not Found.')
+                                Window.showWarningMessage(folder + ' not found.');
+                            else Window.showWarningMessage(error.message.value || error.message);
+                            return false;
+                        }
+                        var id = (data.d || data).vti_x005f_listname.split('{')[1].split('}')[0];
                         // 2. Get folder items
                         var listItems = new sp.Request();
                         listItems.params.path = '/_api/lists(\'' + id + '\')/getItems?$select=FileLeafRef,FileRef,FSObjType,Modified';
@@ -301,10 +383,10 @@ module sp {
                         listItems.data +=   '<Query><Where><And>';
                         listItems.data +=       '<Eq><FieldRef Name=\'FSObjType\' /><Value Type=\'Integer\'>0</Value></Eq>';
                         listItems.data +=       '<BeginsWith><FieldRef Name=\'FileRef\'/><Value Type=\'Text\'>' + auth.project.site + folder + '</Value></BeginsWith>';
-                        listItems.data +=   '</And></Where></Query>';  
+                        listItems.data +=   '</And></Where></Query>';
                         listItems.data += '</View>"} }';
                         listItems.send().then((data:any) => {
-                            var items = data.value;
+                            var items = data.value || data.d.results;
                             count += items.length;
                             if (folderIndex === folders.length - 1)
                                 Window.showInformationMessage('Fetching ' + count + ' items from ' + auth.project.url + '.');
@@ -385,5 +467,12 @@ module sp {
         request.params.method = 'POST';
         return request.send();
     }
+    export var getCurrentUserProperties = () => {
+        var user = new sp.Request();
+        user.params.path = '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Email';
+        return user.send().then((data:any) => {
+            helpers.setCurrentUser(data.d || data);
+        });
+    };
 };
 export = sp;
