@@ -68,6 +68,7 @@ module helpers {
 						});
 					});
 				};
+				prompt();
 			});
 			return promise;
 		}

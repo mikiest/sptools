@@ -110,7 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// File is checked out
 			if (!status) {
 				// File is checked out to current user
-				if (helpers.currentUser.email === props.CheckedOutBy.Email)
+				if ((helpers.currentUser.email || helpers.currentUser.displayName) === (props.CheckedOutBy.Email.length ? props.CheckedOutBy.Email : props.CheckedOutBy.Title))
 					Window.showInformationMessage(fileLeaf + ' is checked out to you.', checkinLabel, discardLabel).then((selection) => {
 						if (selection === checkinLabel) {
 							var modified:Date = new Date(props.TimeLastModified);

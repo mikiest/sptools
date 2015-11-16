@@ -98,7 +98,7 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 ------
 
 - SharePoint 2013 online
-- SharePoint 2013 on premise
+- SharePoint 2013 on premise (NTLM/basic)
 
 ## Known issues
 ------
@@ -106,14 +106,16 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 - `Sync entire workspace` command not implemented yet
 - In some cases time zone difference between SharePoint site and VS Code client can result in wrong "uptodate" notice
 - Image files are not downloaded correctly
+- Users with same Display Name **AND** no email address in SharePoint will be resolved as same (e.g. files will be resolved as "checked out to you" for both)
 
 ## What to expect next
 ------
 
-- SharePoint 2010 compatibility
+- SharePoint 2010 compatibility (on prem)
 - Ignore specific files option using paterns
-- Use WinCred or environment speicfic credentials storage
+- Use WinCred or environment specific credentials storage
 - Auto checkin/out files option
 - SharePoint specific snippets
+- Update/remove specific credentials
 
 ** Enjoy!**
