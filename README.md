@@ -5,6 +5,8 @@ The purpose of this extension is to help **developers** (especially front end) t
 
 `ext install SPTools`
 
+![alt](images/install.gif)
+
 ## Extension settings
 
 These are your extension settings (refer to the description property for more details):
@@ -37,7 +39,16 @@ These are your extension settings (refer to the description property for more de
 
 To override them, specify your own values in `File > Preferences` then either `User Settings` or `Workspace Settings`.
 
-:bulb: It's a good idea to set your own SharePoint folders list, the default ones will probably not exist on your sites.
+![alt](images/settings.gif)
+
+It's a good idea to set your own SharePoint folders list, the default ones will probably not exist on your sites.
+
+### Default project folder (sptools.workFolder)
+
+By default, the local work folder will be `home/sptools`
+:
+- `C:\Users\username\sptools` on *Windows*
+- `/Users/username/sptools` on *OSX*
 
 ### Folders creation
 
@@ -47,7 +58,7 @@ Please keep in mind that any non existing folder used in the config will be crea
 
 This is a **workspace specific** config file, created automatically at the root of the workspace when using the `SPTools: Init` command.
 
-For now it only stores the SharePoint site URL.
+For now it only stores the SharePoint site URL and you don't need to touch it.
 
 ## Commands
 
@@ -57,7 +68,7 @@ Example: You want to upload, file is not checked out. Suggests to check out then
 
 ### SPTools: New workspace
 
-Create a new SharePoint workspace from a remote site.
+Create a new *SharePoint* workspace from a remote site.
 
 Replicate folder structure and download all files locally.
 
@@ -99,8 +110,8 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 - OSX
 - *nix (need feedback)
 
-- SharePoint 2013 online
-- SharePoint 2013 on premise (NTLM/basic)
+- SharePoint 2013 *online*
+- SharePoint 2013 *on premise* (NTLM/basic)
 
 (SPTools works best with GIT)
 
