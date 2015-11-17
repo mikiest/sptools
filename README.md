@@ -1,11 +1,11 @@
 # SPTools
-The purpose of this extension is to help **developers** (especially front end) to work on remote **SharePoint** sites using **Visual Studio Code**.
+Helps **developers** (especially front end) to work on remote **SharePoint** sites using **Visual Studio Code**.
 
 ## Install
 
 `ext install SPTools`
 
-![alt](images/install.gif)
+![install](https://github.com/mikiest/sptools/blob/master/images/install.gif)
 
 ## Extension settings
 
@@ -39,7 +39,7 @@ These are your extension settings (refer to the description property for more de
 
 To override them, specify your own values in `File > Preferences` then either `User Settings` or `Workspace Settings`.
 
-![alt](images/settings.gif)
+![settings](https://github.com/mikiest/sptools/blob/master/images/settings.gif)
 
 It's a good idea to set your own SharePoint folders list, the default ones will probably not exist on your sites.
 
@@ -105,10 +105,10 @@ Credentials are not stored in files, but rather kept in the extension memory.
 Use `SPTools: Reset credentials cache` command to reset the cache.
 
 ## Compatibility
-
 - Windows
 - OSX
-- *nix (need feedback)
+- nix (need feedback)
+
 
 - SharePoint 2013 *online*
 - SharePoint 2013 *on premise* (NTLM/basic)
