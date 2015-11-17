@@ -107,9 +107,7 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 ## Compatibility
 - Windows
 - OSX
-- nix (need feedback)
-
- 
+- *nix (need feedback)
 - SharePoint 2013 *online*
 - SharePoint 2013 *on premise* (NTLM/basic)
 
