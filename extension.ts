@@ -40,24 +40,27 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	// Init new SP workspace
 	var connect = Commands.registerCommand('sp.connect', () => {
-		sp.getConfig(context.extensionPath);
-		var project = <sp.Project>{};
-		var options: vscode.InputBoxOptions = {
-			prompt: 'Project name?',
-			placeHolder: 'Project name'
-		};
-		// Ask for workspace params: SP URL, project title, credentials
-		Window.showInputBox(options).then((selection) => {
-			project.title = selection;
-			options.prompt = 'Site URL?';
-			options.placeHolder = 'http(s)://domain.com';
+		sp.getConfig(context.extensionPath).then(() => {
+			var project = <sp.Project>{};
+			var options: vscode.InputBoxOptions = {
+				prompt: 'Project name?',
+				placeHolder: 'Project name'
+			};
+			// Ask for workspace params: SP URL, project title, credentials
 			Window.showInputBox(options).then((selection) => {
-				project.url = selection;
-				sp.open(project).then(() => {
-					Window.showInformationMessage('Workspace created.');
-					// TODO: Suggest to open workspace
+				project.title = selection;
+				options.prompt = 'Site URL?';
+				options.placeHolder = 'http(s)://domain.com';
+				Window.showInputBox(options).then((selection) => {
+					project.url = selection;
+					sp.open(project).then(() => {
+						Window.showInformationMessage('Workspace created.');
+						// TODO: Suggest to open workspace
+					});
 				});
 			});
+		}, (message:any) => {
+			Window.showWarningMessage(message);
 		});
 	});
 	// Compare local and remote file dates and check check-out status
@@ -80,7 +83,20 @@ export function activate(context: vscode.ExtensionContext) {
 		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
 		sp.download(file, vscode.workspace.rootPath).then((err:any) => {
 			if (err) Window.showErrorMessage(err.message);
-			else Window.showInformationMessage('File: ' + file.split('/').pop() + ' synced from SharePoint.');
+			else {
+				Window.showInformationMessage('File: ' + file.split('/').pop() + ' synced from SharePoint.');
+				sp.checkFileState(file).then((data:any) => {
+					var modified:Date = new Date(data.TimeLastModified);
+					updateStatus(data);
+					if (modified <= data.LocalModified) {
+						sbModified.text = '$(check) Up to date';
+						sbModified.tooltip = 'File is up to date or more recent';
+					} else {
+						sbModified.text = '$(alert) Update required';
+						sbModified.tooltip = 'File is not up to date';
+					}
+				});
+			}
 		});
 	});
 	// Upload file
@@ -180,7 +196,7 @@ export function activate(context: vscode.ExtensionContext) {
 		Window.showWarningMessage('You are about to remove all your saved credentials.', 'Continue').then((selection) => {
 			if (selection === 'Continue')
 				context.globalState.update('sp.credentials', []).then(() => {
-					Window.showInformationMessage('Credentials cache has been reset.');
+					Window.showInformationMessage('Credentials cache has been reset. Existing contexts will persist until Code has been restarted.');
 				});
 		});
 	});

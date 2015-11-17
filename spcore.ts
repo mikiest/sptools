@@ -217,6 +217,10 @@ module sp {
         var credentials = new helpers.Credentials();
         var promise = new Promise((resolve, reject) => {
             get(auth.project.url, (res) => {
+                if (res.statusCode === 400 || !res.headers.microsoftsharepointteamservices) {
+                    Window.showErrorMessage('Please enter a valid URL');
+                    return;
+                }
                 version = parseInt(res.headers.microsoftsharepointteamservices.split('.')[0]);
                 credentials.get(auth.project.url.split('/')[2]).then((credentials:helpers.spCredentials) => {
                     if (version !== 16) {
@@ -278,6 +282,8 @@ module sp {
                         });
                     });
                 });
+            }).on('error', (e) => {
+                Window.showErrorMessage('Error contacting ' + auth.project.url.split('/')[2] + '. Please check the URL or your network.');
             });            
         });
         return promise;
@@ -331,16 +337,29 @@ module sp {
     };
     // Get Extension settings
     export var getConfig = (path:string) => {
-        config = vscode.workspace.getConfiguration('sptools');
-        var wk:string = config.workFolder;
-        if (wk === '$home') wk = ((process.platform === 'win32') ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
-        config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
-        try { fs.statSync(config.path); }
-        catch (err) {
-            Window.showWarningMessage(config.path + ' does not exist.', 'Create').then((selection) => {
-                if (selection === 'Create') mkdir(config.path);
-            });
-        }
+        var promise = new Promise((resolve,reject) => {
+            config = vscode.workspace.getConfiguration('sptools');
+            var wk:string = config.workFolder;
+            var isWin:boolean = process.platform === 'win32';
+            if (wk === '$home') wk = (isWin ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
+            config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
+            if (!isWin) config.path = config.path.split('\\').join('/');
+            try {
+                fs.statSync(config.path);
+                resolve();
+            }
+            catch (err) {
+                Window.showWarningMessage(config.path + ' ("workFolder" setting) does not exist.', 'Create').then((selection) => {
+                    if (selection === 'Create') {
+                        mkdir(config.path);
+                        resolve();
+                    } else
+                        reject('Please check your "workFolder" setting.');
+                });
+            }
+        });
+        return promise;
+        
     };
     // Check file dates and status
     export var checkFileState = (file:string) => {
@@ -361,6 +380,7 @@ module sp {
         var promise = new Promise((resolve,reject) => {
             authenticate().then(() => {
                 var count:number = 0;
+                var notFound:number = 0;
                 folders.forEach((folder, folderIndex) => {
                     // 1. Get list ID
                     var listId = new sp.Request();
@@ -368,8 +388,12 @@ module sp {
                     listId.send().then((data:any) => {
                         var error = data.error;
                         if (error) {
-                            if (error.message === 'File Not Found.' || error.message.value === 'File Not Found.')
+                            if (error.message === 'File Not Found.' || error.message.value === 'File Not Found.') {
+                                notFound++;
                                 Window.showWarningMessage(folder + ' not found.');
+                                if (notFound === folders.length)
+                                    Window.showErrorMessage('Nothing to fetch. Please check your "spFolders" setting.')
+                            }
                             else Window.showWarningMessage(error.message.value || error.message);
                             return false;
                         }

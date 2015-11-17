@@ -75,7 +75,7 @@ SharePoint workspaces (folders with a top level spconfig.json file) will prompt 
 
 **Upload** current file to remote site, replace remote file with local one.
 
-### SPTools: Check in/out file
+### SPTools: Check in/out/discard file
 
 Check file status and ask if you want to **check it in, out or discard** the current check out depending on the current state.
 
@@ -104,7 +104,7 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 ------
 
 - `Sync entire workspace` command not implemented yet
-- In some cases time zone difference between SharePoint site and VS Code client can result in wrong "uptodate" notice
+- In some cases time zone difference between SharePoint site and VS Code client can result in wrong "up to date" notice
 - Image files are not downloaded correctly
 - Users with same Display Name **AND** no email address in SharePoint will be resolved as same (e.g. files will be resolved as "checked out to you" for both)
 
