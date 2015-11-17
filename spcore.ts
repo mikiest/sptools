@@ -301,6 +301,13 @@ module sp {
                     checkedOutBy.params.path = '/_api/web/getfilebyserverrelativeurl(\'' + encodeURI(fileName) + '\')/Checkedoutbyuser?$select=Title,Email';
                     checkedOutBy.send().then((user:any) => {
                         result.CheckedOutBy = user.d || user;
+                        if (!result.CheckedOutBy.Email) {
+                            getProperties(fileName).then((props) => {
+                                resolve(props);
+                            });
+                            return false;
+                        }
+                        result.CheckedOutByMe = (helpers.currentUser.email || helpers.currentUser.displayName) === (result.CheckedOutBy.Email.length ? result.CheckedOutBy.Email : result.CheckedOutBy.Title);
                         resolve(result)
                     });
                 }
@@ -359,7 +366,6 @@ module sp {
             }
         });
         return promise;
-        
     };
     // Check file dates and status
     export var checkFileState = (file:string) => {
@@ -368,6 +374,8 @@ module sp {
                 fs.stat(vscode.workspace.rootPath + file, (err, stats) => {
                     var local:Date = stats.mtime;
                     data.LocalModified = local;
+                    data.TimeLastModified = new Date(data.TimeLastModified);
+                    data.UpToDate = data.TimeLastModified <= data.LocalModified;
                     resolve(data);
                 });
             });
@@ -489,7 +497,11 @@ module sp {
         }
         request.params.path = '/_api/web/GetFileByServerRelativeUrl(\'' + encodeURI(file) + '\')/' + suffix;
         request.params.method = 'POST';
-        return request.send();
+        return request.send().then(() => {
+            sp.checkFileState(file).then((props:any) => {
+                
+            });
+        });
     }
     export var getCurrentUserProperties = () => {
         var user = new sp.Request();

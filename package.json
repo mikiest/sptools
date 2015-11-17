@@ -32,8 +32,8 @@
 			{
 				"command": "sp.date",
 				"category": "SPTools",
-				"title": "Check file freshness",
-				"description": "Compare remote and local last modified dates"
+				"title": "Check file state",
+				"description": "Compare remote and local file dates and get check out state."
 			},
 			{
 				"command": "sp.sync",
@@ -57,13 +57,13 @@
 				"command": "sp.refresh",
 				"category": "SPTools",
 				"title": "Sync entire workspace",
-				"description": "Sync entire workspace (use with caution)"
+				"description": "Sync entire workspace"
 			},
 			{
 				"command": "sp.credentials.reset",
 				"category": "SPTools",
 				"title": "Reset credentials cache",
-				"description": "Delete all saved credentials (use with caution)"
+				"description": "Delete all saved credentials"
 			}
 		],
 		"configuration": {

@@ -1,13 +1,11 @@
 # SPTools
-The purpose of this extension is to help **developers** to work on remote **SharePoint** sites using **Visual Studio Code**.
+The purpose of this extension is to help **developers** (especially front end) to work on remote **SharePoint** sites using **Visual Studio Code**.
 
 ## Install
-------
 
 `ext install SPTools`
 
 ## Extension settings
-------
 
 These are your extension settings (refer to the description property for more details):
 
@@ -46,14 +44,16 @@ To override them, specify your own values in `File > Preferences` then either `U
 Please keep in mind that any non existing folder used in the config will be created, specifically the working folder `sptools.workFolder`.
 
 ## spconfig.json
-------
 
 This is a **workspace specific** config file, created automatically at the root of the workspace when using the `SPTools: Init` command.
 
 For now it only stores the SharePoint site URL.
 
 ## Commands
-------
+
+Most of the commands below run their own checks and suggest any recommended actions.
+
+Example: You want to upload, file is not checked out. Suggests to check out then upload.
 
 ### SPTools: New workspace
 
@@ -63,9 +63,9 @@ Replicate folder structure and download all files locally.
 
 SharePoint workspaces (folders with a top level spconfig.json file) will prompt you to login to the relevant remote site the first time you open a file. This is because the extension is checking the current file status (date and check out status) when opening it (there is a small latence so it won't check dozen of files if you quickly switch between them).
 
-### SPTools: Check file freshness
+### SPTools: Check file state
 
-**Compare** remote and local last modified dates and update statusbar indicators accordingly.
+**Compare** remote and local last modified dates, get check out state and update statusbar indicators accordingly.
 
 ### SPTools: Sync file
 
@@ -81,27 +81,30 @@ Check file status and ask if you want to **check it in, out or discard** the cur
 
 ### SPTools: Sync entire workspace
 
-Sync entire workspace (use with caution)
+Sync entire workspace (Not implemented yet)
 
 ### SPTools: Reset credentials cache
 
-**Delete all cached credentials**
+**Delete** all cached credentials
 
 ## A word about credentials
-------
 
 Credentials are not stored in files, but rather kept in the extension memory.
 
 Use `SPTools: Reset credentials cache` command to reset the cache.
 
 ## Compatibility
-------
+
+- Windows
+- OSX
+- *nix (need feedback)
 
 - SharePoint 2013 online
 - SharePoint 2013 on premise (NTLM/basic)
 
+(SPTools works best with GIT)
+
 ## Known issues
-------
 
 - `Sync entire workspace` command not implemented yet
 - In some cases time zone difference between SharePoint site and VS Code client can result in wrong "up to date" notice
@@ -109,7 +112,6 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 - Users with same Display Name **AND** no email address in SharePoint will be resolved as same (e.g. files will be resolved as "checked out to you" for both)
 
 ## What to expect next
-------
 
 - SharePoint 2010 compatibility (on prem)
 - Ignore specific files option using paterns

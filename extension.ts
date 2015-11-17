@@ -20,8 +20,8 @@ export function activate(context: vscode.ExtensionContext) {
 		sbStatus.text = '$(link-external) Checked out';
 		sbStatus.tooltip = 'File is presently checked out';
 		if (!status) {
-			sbStatus.tooltip += ' to ' + ((helpers.currentUser.email === data.CheckedOutBy.Email) ? 'you' : data.CheckedOutBy.Title);
-			if (helpers.currentUser.email === data.CheckedOutBy.Email) sbStatus.text = '$(link-external) Checked out to you';
+			sbStatus.tooltip += ' to ' + (data.CheckedOutByMe ? 'you' : data.CheckedOutBy.Title);
+			if (data.CheckedOutByMe) sbStatus.text = '$(link-external) Checked out to you';
 			sbStatus.show();
 		}
 	};
@@ -71,41 +71,123 @@ export function activate(context: vscode.ExtensionContext) {
 		sbModified.text = '$(sync) Checking file state';
 		sbModified.tooltip = 'Comparing file dates between local and SharePoint';
 		sp.checkFileState(file).then((data:any) => {
-			var modified:Date = new Date(data.TimeLastModified);
 			updateStatus(data);
-			sbModified.text = modified <= data.LocalModified ? '$(check) Up to date' : '$(alert) Update required';
-			sbModified.tooltip = modified <= data.LocalModified ? 'File is up to date or more recent' : 'File is not up to date';
+			if (data.UpToDate) {
+				sbModified.text = '$(check) Up to date';
+				sbModified.command = 'sp.date';
+				sbModified.tooltip = 'File is up to date or more recent';
+			} else {
+				sbModified.text = '$(alert) Update required';
+				sbModified.command = 'sp.sync';
+				sbModified.tooltip = 'File is not up to date';
+			}
 		});
 	});
 	// Sync file
 	var sync = Commands.registerCommand('sp.sync', () => {
-		// TODO check file status
-		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
-		sp.download(file, vscode.workspace.rootPath).then((err:any) => {
-			if (err) Window.showErrorMessage(err.message);
-			else {
-				Window.showInformationMessage('File: ' + file.split('/').pop() + ' synced from SharePoint.');
-				sp.checkFileState(file).then((data:any) => {
-					var modified:Date = new Date(data.TimeLastModified);
-					updateStatus(data);
-					if (modified <= data.LocalModified) {
-						sbModified.text = '$(check) Up to date';
-						sbModified.tooltip = 'File is up to date or more recent';
-					} else {
-						sbModified.text = '$(alert) Update required';
-						sbModified.tooltip = 'File is not up to date';
+		var file:string = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
+		var fileLeaf:string = file.split('/').pop();
+		sp.checkFileState(file).then((props:any) => {
+			// Check dates
+			var promise = new Promise((resolve, reject) => {
+				if (!props.UpToDate || props.TimeLastModified.getTime() === props.LocalModified.getTime()) {
+					resolve();
+					return false;
+				}
+				Window.showWarningMessage(fileLeaf + ' is older on server. Local changes might be lost if you continue.', 'Continue').then((selection) => {
+					if (selection === 'Continue') {
+						resolve();
+						return false;
+					}
+				})
+			});
+			promise.then(() => {
+				// Download
+				sp.download(file, vscode.workspace.rootPath).then((err:any) => {
+					if (err) Window.showErrorMessage(err.message);
+					else {
+						Window.showInformationMessage(fileLeaf + ' synced from SharePoint.');
+						vscode.commands.executeCommand('sp.date');
 					}
 				});
-			}
+			});
 		});
 	});
 	// Upload file
 	var upload = Commands.registerCommand('sp.upload', () => {
-		// TODO check file status
 		var file = Window.activeTextEditor.document.fileName.split(vscode.workspace.rootPath)[1].split('\\').join('/');
-		sp.upload(file).then((err:any) => {
-			if (err) Window.showErrorMessage(err.message);
-			else Window.showInformationMessage('File: ' + file.split('/').pop() + ' uploaded to SharePoint.');
+		var fileLeaf:string = file.split('/').pop();
+		sp.checkFileState(file).then((props:any) => {
+			// Check dates
+			var promise = new Promise((resolve, reject) => {
+				if (props.UpToDate) {
+					resolve();
+					return false;
+				}
+				Window.showWarningMessage(fileLeaf + ' is newer on server. Changes on the site might be lost if you continue.', 'Continue').then((selection) => {
+					if (selection === 'Continue')
+						resolve();
+				})
+			});
+			promise.then(() => {
+				// Check check out status
+				var promise = new Promise((resolve,reject) => {
+					if (props.CheckedOutByMe)
+						resolve();
+					else
+						// " is checked out" or " is not checked out"
+						Window.showWarningMessage(fileLeaf + ' is ' 
+							+ (!props.CheckOutType ? '' : 'not')
+							+ ' checked out'
+							+ (!props.CheckOutType ? ' to ' + props.CheckedOutBy.Title : '')
+							+ '.',
+						// "Discard, checkout and upload" or "Check out and upload"
+							(!props.CheckOutType ? 'Discard, c' : 'C')
+							+ 'heck out and upload'
+						).then((selection) => {
+							var action:number = !props.CheckOutType ? 2 : 1;
+							if (selection && selection.length)
+								sp.checkinout(file, action).then(() => {
+									if (!props.CheckOutType)
+										sp.checkinout(file, 1).then(() => {
+											resolve();
+										});
+									else
+										resolve();
+								});
+						});
+				});
+				promise.then(() => {
+					// Upload
+					sp.upload(file).then((err:any) => {
+						if (err) Window.showErrorMessage(err.message);
+						else {
+							Window.showInformationMessage(fileLeaf + ' uploaded to SharePoint, checked out to you.', 'Check in').then((selection) => {
+								vscode.commands.executeCommand('sp.date');
+								var promise = new Promise((resolve,reject) => {
+									if (selection === 'Check in')
+										sp.checkinout(file, 0).then(() => {
+											resolve();
+										});
+									else 
+										resolve();
+								});
+								promise.then(() => {
+									sp.checkFileState(file).then((newProps:any) => {
+										var modified:number = new Date(newProps.TimeLastModified).getTime() / 1000 | 0;
+										fs.utimes(vscode.workspace.rootPath + file, modified, modified, (err) => {
+											vscode.commands.executeCommand('sp.date');
+											if (selection === 'Check in')
+												Window.showInformationMessage(fileLeaf + ' is now checked in.');
+											if (err) throw err;
+										});
+									});
+								});
+							});
+						}
+					});
+				});
+			});
 		});
 	});
 	// Check in, out or discard current file checkout
@@ -126,15 +208,13 @@ export function activate(context: vscode.ExtensionContext) {
 			// File is checked out
 			if (!status) {
 				// File is checked out to current user
-				if ((helpers.currentUser.email || helpers.currentUser.displayName) === (props.CheckedOutBy.Email.length ? props.CheckedOutBy.Email : props.CheckedOutBy.Title))
+				if (props.CheckedOutByMe)
 					Window.showInformationMessage(fileLeaf + ' is checked out to you.', checkinLabel, discardLabel).then((selection) => {
 						if (selection === checkinLabel) {
-							var modified:Date = new Date(props.TimeLastModified);
-							var uptodate:boolean = modified <= props.LocalModified;
 							var promise = new Promise((resolve, reject) => {
-								if (modified.getTime() === props.LocalModified.getTime()) resolve();
+								if (props.TimeLastModified.getTime() === props.LocalModified.getTime()) resolve();
 								else
-									Window.showWarningMessage(fileLeaf + ' is '+ (uptodate ? 'older' : 'more recent') + ' on server.' , 'Keep server version', 'Upload local version').then((selection) => {
+									Window.showWarningMessage(fileLeaf + ' is '+ (props.UpToDate ? 'older' : 'more recent') + ' on server.' , 'Keep server version', 'Upload local version').then((selection) => {
 										var action:string = selection === 'Keep server version' ? 'download': 'upload';
 										sp[action](file).then((data:any) => {
 											resolve();
