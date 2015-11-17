@@ -2,13 +2,16 @@
 	"name": "sp-tools",
 	"displayName": "SPTools",
 	"description": "Tools helping SharePoint development using VS Code",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"publisher": "Mike",
 	"keywords": ["sharepoint", "o365", "tools"],
 	"engines": {
 		"vscode": "0.10.x"
 	},
 	"icon": "images/sptools-72.png",
+	"bugs": {
+		"url": "https://github.com/mikiest/sptools/issues"
+	},
     "galleryBanner": {
         "color": "#232323",
         "theme": "dark"

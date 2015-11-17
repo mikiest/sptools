@@ -5,7 +5,7 @@ Helps **developers** (especially front end) to work on remote **SharePoint** sit
 
 `ext install SPTools`
 
-![install](https://github.com/mikiest/sptools/blob/master/images/install.gif)
+![install](https://raw.githubusercontent.com/mikiest/sptools/master/images/install.gif)
 
 ## Extension settings
 
@@ -39,7 +39,7 @@ These are your extension settings (refer to the description property for more de
 
 To override them, specify your own values in `File > Preferences` then either `User Settings` or `Workspace Settings`.
 
-![settings](https://github.com/mikiest/sptools/blob/master/images/settings.gif)
+![settings](https://raw.githubusercontent.com/mikiest/sptools/master/images/settings.gif)
 
 It's a good idea to set your own SharePoint folders list, the default ones will probably not exist on your sites.
 
@@ -107,9 +107,7 @@ Use `SPTools: Reset credentials cache` command to reset the cache.
 ## Compatibility
 - Windows
 - OSX
-- nix (need feedback)
-
-
+- *nix (need feedback)
 - SharePoint 2013 *online*
 - SharePoint 2013 *on premise* (NTLM/basic)
 
