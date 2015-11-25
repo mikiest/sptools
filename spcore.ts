@@ -5,7 +5,6 @@ import * as http from 'http';
 import * as constants from 'constants';
 var cookie = require('cookie');
 import * as fs from 'fs';
-import * as cp from 'child_process';
 import helpers = require('./helpers');
 var httpntlm = require('httpntlm');
 

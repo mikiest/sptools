@@ -4,6 +4,7 @@ import Commands = vscode.commands;
 import sp = require('./spcore');
 import helpers = require('./helpers');
 import * as fs from 'fs';
+import * as cp from 'child_process';
 
 export function activate(context: vscode.ExtensionContext) {
 	// Store extension context for SP module
@@ -22,8 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
 		if (!status) {
 			sbStatus.tooltip += ' to ' + (data.CheckedOutByMe ? 'you' : data.CheckedOutBy.Title);
 			if (data.CheckedOutByMe) sbStatus.text = '$(link-external) Checked out to you';
-			sbStatus.show();
+		} else {
+			sbStatus.text = '$(check) Checked in';
+			sbStatus.tooltip = 'File is presently checked in';
 		}
+		sbStatus.show();
 	};
 	// Wether the opened file should be ignored
 	var ignoreFile = (file:string) => {
@@ -54,7 +58,18 @@ export function activate(context: vscode.ExtensionContext) {
 				Window.showInputBox(options).then((selection) => {
 					project.url = selection;
 					sp.open(project).then(() => {
-						Window.showInformationMessage('Workspace created.');
+						Window.showInformationMessage('Workspace created.', 'Open').then((selection) => {
+							var workFolder:string = vscode.workspace.getConfiguration('sptools').get<string>('workFolder');
+							if (workFolder === '$home') workFolder = (process.platform === 'win32' ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
+							if (selection === 'Open')
+								cp.exec('code "' + workFolder + '/' + project.title + '"', function (error, stdout, stderr) {
+									console.log('stdout: ' + stdout);
+									console.log('stderr: ' + stderr);
+									if (error !== null) {
+									console.log('exec error: ' + error);
+									}
+								});
+						});
 						// TODO: Suggest to open workspace
 					});
 				});
