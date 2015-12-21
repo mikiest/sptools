@@ -97,7 +97,13 @@
 					"description": "Your check in comment."
 				}
 			}
-		}
+		},
+		"snippets" : [
+			{
+				"language" : "html",
+				"path" : "./snippets/html.json"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",

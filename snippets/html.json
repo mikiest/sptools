@@ -1,0 +1,92 @@
+{
+	"sp-boolean": {
+		"prefix": "sp-boolean",
+		"body": [
+			"<SharePointWebControls:BooleanField FieldName=\"${FieldName}\" runat=\"server\"/>"
+		],
+		"description": "Create a boolean page field"
+	},
+	"sp-choice": {
+		"prefix": "sp-choice",
+		"body": [
+			"<SharePointWebControls:DropDownChoiceField FieldName=\"${FieldName}\" runat=\"server\"/>"
+		],
+		"description": "Create a choice page field"
+	},
+	"sp-display": {
+		"prefix": "sp-display",
+		"body": [
+			"<%-- <%@ Register TagPrefix=\"PublishingWebControls\" Namespace=\"Microsoft.SharePoint.Publishing.WebControls\" Assembly=\"Microsoft.SharePoint.Publishing, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c\" %> --%>",
+			"<PublishingWebControls:EditModePanel DisplayMode=\"Display\" runat=\"server\">",
+			"$1",
+			"</PublishingWebControls:EditModePanel>"
+		],
+		"description": "Create an EditModePanel for display mode only"
+	},
+	"sp-edit": {
+		"prefix": "sp-edit",
+		"body": [
+			"<%-- <%@ Register TagPrefix=\"PublishingWebControls\" Namespace=\"Microsoft.SharePoint.Publishing.WebControls\" Assembly=\"Microsoft.SharePoint.Publishing, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c\" %> --%>",
+			"<PublishingWebControls:EditModePanel runat=\"server\">",
+			"$1\t",
+			"</PublishingWebControls:EditModePanel>"
+		],
+		"description": "Create an EditModePanel for edit mode only"
+	},
+	"sp-img": {
+		"prefix": "sp-img",
+		"body": [
+			"<PublishingWebControls:RichImageField FieldName=\"${PublishingRollupImage}\" runat=\"server\"/>"
+		],
+		"description": "Create an image page field"
+	},
+	"sp-note": {
+		"prefix": "sp-note",
+		"body": [
+			"<SharePointWebControls:NoteField runat=\"server\" FieldName=\"${Summary}\"/>"
+		],
+		"description": "Create a note page field"
+	},
+	"sp-rating": {
+		"prefix": "sp-rating",
+		"body": [
+			"<SharePointPortalControls:AverageRatingFieldControl ID=\"PageRatingControl\" FieldName=\"${AverageRating}\" runat=\"server\"/>"
+		],
+		"description": "Create a rating page field"
+	},
+	"sp-rich": {
+		"prefix": "sp-rich",
+		"body": [
+			"<PublishingWebControls:RichHtmlField FieldName=\"${PublishingPageContent}\" HasInitialFocus=\"True\" MinimumEditHeight=\"400px\" runat=\"server\"/>"
+		],
+		"description": "Create a rich text page field"
+	},
+	"sp-text": {
+		"prefix": "sp-text",
+		"body": [
+			"<SharePointWebControls:TextField runat=\"server\" FieldName=\"${Title}\"/>"
+		],
+		"description": "Create a text page field"
+	},
+	"sp-url": {
+		"prefix": "sp-url",
+		"body": [
+			"<SharePointWebControls:UrlField FieldName=\"${URL}\" runat=\"server\"/>"
+		],
+		"description": "Create a ur page field"
+	},
+	"sp-value": {
+		"prefix": "sp-value",
+		"body": [
+			"<SharePointWebControls:FieldValue FieldName=\"${Title}\" runat=\"server\"/>"
+		],
+		"description": "Display a field value"
+	},
+	"sp-wpz": {
+		"prefix": "sp-wpz",
+		"body": [
+			"<WebPartPages:WebPartZone runat=\"server\" Title=\"${Title}\" ID=\"${Title}\" FrameType=\"None\"/>"
+		],
+		"description": "Insert a web part zone"
+	}
+}
