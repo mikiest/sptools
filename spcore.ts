@@ -320,13 +320,14 @@ module sp {
             Window.showWarningMessage('Please fill all the inputs');
             return;
         }
-        var workfolder = config.path + options.title;
+        var config = vscode.workspace.getConfiguration('sptools');
+        var workfolder = getWorkFolderSetting() + options.title;
         mkdir(workfolder);
         fs.writeFileSync(workfolder + '/spconfig.json', '{"site": "' + options.url + '"}');
         auth.project = options;
         auth.project.site = getSiteCollection(options.url);
         var request = new sp.Request();
-        return sp.get(config.spFolders, tokens);
+        return sp.get(config.get<string>('spFolders'), tokens);
     };
     // Get and store Extension context
     export var getContext = (context:vscode.ExtensionContext) => {
@@ -344,20 +345,15 @@ module sp {
     // Get Extension settings
     export var getConfig = (path:string) => {
         var promise = new Promise((resolve,reject) => {
-            config = vscode.workspace.getConfiguration('sptools');
-            var wk:string = config.workFolder;
-            var isWin:boolean = process.platform === 'win32';
-            if (wk === '$home') wk = (isWin ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
-            config.path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
-            if (!isWin) config.path = config.path.split('\\').join('/');
+            var workFolder:string = getWorkFolderSetting();
             try {
-                fs.statSync(config.path);
+                fs.statSync(workFolder);
                 resolve();
             }
             catch (err) {
-                Window.showWarningMessage(config.path + ' ("workFolder" setting) does not exist.', 'Create').then((selection) => {
+                Window.showWarningMessage(workFolder + ' ("workFolder" setting) does not exist.', 'Create').then((selection) => {
                     if (selection === 'Create') {
-                        mkdir(config.path);
+                        mkdir(workFolder);
                         resolve();
                     } else
                         reject('Please check your "workFolder" setting.');
@@ -383,7 +379,7 @@ module sp {
     }
     // Resolve and download files
     export var get = (folders, tokens) => {
-		var workfolder = config.path.split('\\').join('/') + auth.project.title;
+		var workfolder = getWorkFolderSetting() + auth.project.title;
         var promise = new Promise((resolve,reject) => {
             authenticate().then(() => {
                 var count:number = 0;
@@ -510,4 +506,25 @@ module sp {
         });
     };
 };
+
+// Get work folder setting
+var getWorkFolderSetting = ():string => {
+
+    var config = vscode.workspace.getConfiguration('sptools');
+    var wk:string = config.get<string>('workFolder');
+    var isWin:boolean = process.platform === 'win32';
+    var path:string;
+
+    if (wk === '$home')
+        wk = (isWin ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
+
+    path = wk + (wk.substring(wk.length - 1, wk.length) === '\\' ? '' : '\\');
+
+    if (!isWin)
+        path = path.split('\\').join('/');
+
+    return path;
+
+}
+
 export = sp;

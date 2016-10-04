@@ -2,9 +2,7 @@ import * as vscode from 'vscode';
 import Window = vscode.window;
 
 var ctx:vscode.ExtensionContext;
-var sbUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right);
-sbUser.priority = 99;
-
+var sbUser:vscode.StatusBarItem = Window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
 var premCred:helpers.spCredentials;
 
 module helpers {

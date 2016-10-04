@@ -60,17 +60,15 @@ export function activate(context: vscode.ExtensionContext) {
 					sp.open(project).then(() => {
 						Window.showInformationMessage('Workspace created.', 'Open').then((selection) => {
 							var workFolder:string = vscode.workspace.getConfiguration('sptools').get<string>('workFolder');
-							if (workFolder === '$home') workFolder = (process.platform === 'win32' ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
-							if (selection === 'Open')
-								cp.exec('code "' + workFolder + '/' + project.title + '"', function (error, stdout, stderr) {
-									console.log('stdout: ' + stdout);
-									console.log('stderr: ' + stderr);
-									if (error !== null) {
-									console.log('exec error: ' + error);
-									}
-								});
+							if (workFolder === '$home')
+								workFolder = (process.platform === 'win32' ? process.env.HOMEPATH : process.env.HOME) + '\\sptools';
+							if (selection === 'Open') {
+
+								var uri:vscode.Uri = vscode.Uri.file(workFolder + '\\' + project.title);
+								var success = Commands.executeCommand('vscode.openFolder', uri, false);
+
+							}
 						});
-						// TODO: Suggest to open workspace
 					});
 				});
 			});
