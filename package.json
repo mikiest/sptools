@@ -1,122 +1,126 @@
 {
-	"name": "sp-tools",
-	"displayName": "SPTools",
-	"description": "Tools helping SharePoint development using VS Code",
-	"version": "0.1.6",
-	"publisher": "Mike",
-	"keywords": ["sharepoint", "o365", "tools"],
-	"engines": {
-		"vscode": "0.10.x"
-	},
-	"icon": "images/sptools-72.png",
-	"bugs": {
-		"url": "https://github.com/mikiest/sptools/issues"
-	},
+    "name": "sp-tools",
+    "displayName": "SPTools",
+    "description": "Tools helping SharePoint development using VS Code",
+    "version": "0.3.0",
+    "publisher": "Mike",
+    "keywords": [
+        "sharepoint",
+        "o365",
+        "tools"
+    ],
+    "engines": {
+        "vscode": "0.10.x"
+    },
+    "icon": "images/sptools-72.png",
+    "bugs": {
+        "url": "https://github.com/mikiest/sptools/issues"
+    },
     "galleryBanner": {
         "color": "#232323",
         "theme": "dark"
     },
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onCommand:sp.connect",
-		"workspaceContains:spconfig.json"
-	],
-	"main": "./out/extension",
-	"contributes": {
-		"commands": [
-			{
-				"command": "sp.connect",
-				"category": "SPTools",
-				"title": "New workspace",
-				"description": "Initialize and sync a SharePoint workspace"
-			},
-			{
-				"command": "sp.date",
-				"category": "SPTools",
-				"title": "Check file state",
-				"description": "Compare remote and local file dates and get check out state."
-			},
-			{
-				"command": "sp.sync",
-				"category": "SPTools",
-				"title": "Sync file",
-				"description": "Sync current file"
-			},
-			{
-				"command": "sp.upload",
-				"category": "SPTools",
-				"title": "Upload file",
-				"description": "Upload current file"
-			},
-			{
-				"command": "sp.checkinout",
-				"category": "SPTools",
-				"title": "Check in/out/discard file",
-				"description": "Check in, out or discard current file checkout"
-			},
-			{
-				"command": "sp.refresh",
-				"category": "SPTools",
-				"title": "Sync entire workspace",
-				"description": "Sync entire workspace"
-			},
-			{
-				"command": "sp.credentials.reset",
-				"category": "SPTools",
-				"title": "Reset credentials cache",
-				"description": "Delete all saved credentials"
-			}
-		],
-		"configuration": {
-			"type": "object",
-			"title": "SPTools configuration",
-			"properties": {
-				"sptools.workFolder": {
-					"type": "string",
-					"default": "$home",
-					"description": "Path to your top level work folder"
-				},
-				"sptools.spFolders": {
-					"type": "array",
-					"default": [
-						"/_catalogs/masterpage/sptools",
-						"/style library/en-us/themable/sptools"
-					],
-					"description": "Folders to be fetched from SharePoint sites"
-				},
-				"sptools.storeCredentials": {
-					"type": "boolean",
-					"default": true,
-					"description": "Set to false if you don't want credentials to be stored"
-				},
-				"sptools.checkInComment": {
-					"type": "string",
-					"default": "From SPTools for VS Code",
-					"description": "Your check in comment."
-				}
-			}
-		},
-		"snippets" : [
-			{
-				"language" : "html",
-				"path" : "./snippets/html.json"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
-	},
-	"devDependencies": {
-		"vscode": "0.10.x"
-	},
-	"dependencies": {
-		"constants": "0.0.2",
-		"cookie": "0.2.3",
-		"fs": "0.0.2",
-		"https": "1.0.0",
-		"httpntlm": "1.5.2"
-	}
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:sp.connect",
+        "workspaceContains:spconfig.json"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "sp.connect",
+                "category": "SPTools",
+                "title": "New workspace",
+                "description": "Initialize and sync a SharePoint workspace"
+            },
+            {
+                "command": "sp.date",
+                "category": "SPTools",
+                "title": "Check file state",
+                "description": "Compare remote and local file dates and get check out state."
+            },
+            {
+                "command": "sp.sync",
+                "category": "SPTools",
+                "title": "Sync file",
+                "description": "Sync current file"
+            },
+            {
+                "command": "sp.upload",
+                "category": "SPTools",
+                "title": "Upload file",
+                "description": "Upload current file"
+            },
+            {
+                "command": "sp.checkinout",
+                "category": "SPTools",
+                "title": "Check in/out/discard file",
+                "description": "Check in, out or discard current file checkout"
+            },
+            {
+                "command": "sp.refresh",
+                "category": "SPTools",
+                "title": "Sync entire workspace",
+                "description": "Sync entire workspace"
+            },
+            {
+                "command": "sp.credentials.reset",
+                "category": "SPTools",
+                "title": "Reset credentials cache",
+                "description": "Delete all saved credentials"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "SPTools configuration",
+            "properties": {
+                "sptools.workFolder": {
+                    "type": "string",
+                    "default": "$home",
+                    "description": "Path to your top level work folder"
+                },
+                "sptools.spFolders": {
+                    "type": "array",
+                    "default": [
+                        "/_catalogs/masterpage/sptools",
+                        "/style library/en-us/themable/sptools"
+                    ],
+                    "description": "Folders to be fetched from SharePoint sites"
+                },
+                "sptools.storeCredentials": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Set to false if you don't want credentials to be stored"
+                },
+                "sptools.checkInComment": {
+                    "type": "string",
+                    "default": "From SPTools for VS Code",
+                    "description": "Your check in comment."
+                }
+            }
+        },
+        "snippets": [
+            {
+                "language": "html",
+                "path": "./snippets/html.json"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+    },
+    "devDependencies": {
+        "vscode": "0.10.x"
+    },
+    "dependencies": {
+        "constants": "0.0.2",
+        "cookie": "0.2.3",
+        "fs": "0.0.2",
+        "https": "1.0.0",
+        "httpntlm": "1.5.2"
+    }
 }
